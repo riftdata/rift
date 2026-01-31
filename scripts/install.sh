@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-GITHUB_REPO="YOUR_USERNAME/pgbranch"
+GITHUB_REPO="pgbranch/pgbranch"
 BINARY_NAME="pgbranch"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 

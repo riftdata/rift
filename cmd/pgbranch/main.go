@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"pgbranch/internal/config"
-	"pgbranch/internal/ui"
+	"github.com/pgbranch/pgbranch/internal/config"
+	"github.com/pgbranch/pgbranch/internal/ui"
 )
 
 // Build-time variables

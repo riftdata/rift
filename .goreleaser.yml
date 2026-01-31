@@ -68,7 +68,7 @@ release:
 brews:
   - name: pgbranch
     repository:
-      owner: YOUR_USERNAME
+      owner: pgbranch
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
@@ -83,7 +83,7 @@ brews:
 dockers:
   - image_templates:
       - "pgbranch/pgbranch:{{ .Version }}-amd64"
-      - "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}-amd64"
+      - "ghcr.io/pgbranch/pgbranch:{{ .Version }}-amd64"
     use: buildx
     dockerfile: docker/Dockerfile
     build_flag_templates:
@@ -94,7 +94,7 @@ dockers:
 
   - image_templates:
       - "pgbranch/pgbranch:{{ .Version }}-arm64"
-      - "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}-arm64"
+      - "ghcr.io/pgbranch/pgbranch:{{ .Version }}-arm64"
     use: buildx
     dockerfile: docker/Dockerfile
     goarch: arm64
@@ -115,15 +115,15 @@ docker_manifests:
       - "pgbranch/pgbranch:{{ .Version }}-amd64"
       - "pgbranch/pgbranch:{{ .Version }}-arm64"
 
-  - name_template: "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}"
+  - name_template: "ghcr.io/pgbranch/pgbranch:{{ .Version }}"
     image_templates:
-      - "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}-amd64"
-      - "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}-arm64"
+      - "ghcr.io/pgbranch/pgbranch:{{ .Version }}-amd64"
+      - "ghcr.io/pgbranch/pgbranch:{{ .Version }}-arm64"
 
-  - name_template: "ghcr.io/YOUR_USERNAME/pgbranch:latest"
+  - name_template: "ghcr.io/pgbranch/pgbranch:latest"
     image_templates:
-      - "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}-amd64"
-      - "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}-arm64"
+      - "ghcr.io/pgbranch/pgbranch:{{ .Version }}-amd64"
+      - "ghcr.io/pgbranch/pgbranch:{{ .Version }}-arm64"
 
 announce:
   skip: true

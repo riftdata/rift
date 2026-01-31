@@ -1,4 +1,4 @@
-module pgbranch
+module github.com/pgbranch/pgbranch
 
 go 1.25.6
 

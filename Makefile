@@ -160,7 +160,7 @@ docs: ## Generate documentation
 
 docs-serve: ## Serve documentation locally
 	@which godoc > /dev/null || go install golang.org/x/tools/cmd/godoc@latest
-	@echo "$(GREEN)Documentation server: http://localhost:6060/pkg/github.com/YOUR_USERNAME/pgbranch/$(NC)"
+	@echo "$(GREEN)Documentation server: http://localhost:6060/pkg/github.com/pgbranch/pgbranch/$(NC)"
 	godoc -http=:6060
 
 ##@ Cleanup

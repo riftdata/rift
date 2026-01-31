@@ -26,7 +26,7 @@ Thanks for your interest in contributing to pgBranch! This project is in early d
 ### Quick Start
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/pgBranch.git
+git clone https://github.com/pgbranch/pgBranch.git
 cd pgBranch
 
 # Install dependencies
@@ -46,9 +46,9 @@ make build
 
 ### 1. Fork and Clone
 ```bash
-git clone https://github.com/YOUR_USERNAME/pgBranch.git
+git clone https://github.com/pgbranch/pgBranch.git
 cd pgBranch
-git remote add upstream https://github.com/ORIGINAL_OWNER/pgBranch.git
+git remote add upstream https://github.com/pgbranch/pgbranch.git
 ```
 
 ### 2. Set Up PostgreSQL
