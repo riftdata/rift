@@ -1,0 +1,60 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+bin/
+dist/
+*.exe
+
+# Data
+data/
+*.db
+*.sqlite
+
+# Test artifacts
+coverage.out
+coverage.html
+*.test
+*.prof
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Examples and scripts (not needed in image)
+examples/
+scripts/
+
+# Development
+.env
+.env.*
+.air.toml
+tmp/
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+!docker/Dockerfile
+
+# CI
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Misc
+LICENSE
+CHANGELOG.md
+Makefile

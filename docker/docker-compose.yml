@@ -1,0 +1,81 @@
+version: "3.8"
+
+services:
+  # Upstream PostgreSQL (simulates production database)
+  postgres:
+    image: postgres:17-alpine
+    container_name: pgbranch-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: upstream
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pgbranch-net
+
+  # pgbranch proxy
+  pgbranch:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: pgbranch
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGBRANCH_UPSTREAM_URL: postgres://postgres:postgres@postgres:5432/upstream?sslmode=disable
+      PGBRANCH_LISTEN_ADDR: :6432
+      PGBRANCH_API_ADDR: :8080
+      PGBRANCH_DATA_DIR: /data
+      PGBRANCH_LOG_LEVEL: debug
+      PGBRANCH_LOG_FORMAT: text
+    ports:
+      - "6432:6432"   # Postgres proxy
+      - "8080:8080"   # HTTP API / Dashboard
+    volumes:
+      - pgbranch-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - pgbranch-net
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:9
+    container_name: pgbranch-pgadmin
+    profiles:
+      - tools
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pgbranch.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+      - pgbranch
+    networks:
+      - pgbranch-net
+
+volumes:
+  postgres-data:
+  pgbranch-data:
+  pgadmin-data:
+
+networks:
+  pgbranch-net:
+    driver: bridge

@@ -1,0 +1,117 @@
+name: 'pgBranch'
+description: 'Create instant database branches for your CI tests'
+author: 'pgBranch'
+
+branding:
+  icon: 'git-branch'
+  color: '#0EA5E9'
+
+inputs:
+  upstream:
+    description: 'Upstream PostgreSQL connection URL'
+    required: true
+  branch:
+    description: 'Branch name to create'
+    required: false
+    default: 'pr-${{ github.event.number }}'
+  version:
+    description: 'pgBranch version to use'
+    required: false
+    default: 'latest'
+  ttl:
+    description: 'Branch TTL (e.g., 24h, 7d)'
+    required: false
+    default: ''
+  proxy-port:
+    description: 'Port for the Postgres proxy'
+    required: false
+    default: '6432'
+  api-port:
+    description: 'Port for the HTTP API'
+    required: false
+    default: '8080'
+  cleanup:
+    description: 'Delete branch after job completes'
+    required: false
+    default: 'true'
+
+outputs:
+  database-url:
+    description: 'Connection URL for the branched database'
+    value: ${{ steps.create.outputs.database-url }}
+  branch-name:
+    description: 'Name of the created branch'
+    value: ${{ steps.create.outputs.branch-name }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install pgBranch
+      shell: bash
+      run: |
+        VERSION="${{ inputs.version }}"
+        if [ "$VERSION" = "latest" ]; then
+          curl -fsSL https://pgbranch.dev/install.sh | sh
+        else
+          curl -fsSL https://pgbranch.dev/install.sh | VERSION="$VERSION" sh
+        fi
+
+    - name: Initialize pgBranch
+      shell: bash
+      run: |
+        pgbranch init --upstream "${{ inputs.upstream }}"
+
+    - name: Start pgBranch proxy
+      shell: bash
+      run: |
+        pgbranch serve \
+          --listen ":${{ inputs.proxy-port }}" \
+          --api ":${{ inputs.api-port }}" &
+        
+        # Wait for proxy to be ready
+        for i in {1..30}; do
+          if curl -s "http://localhost:${{ inputs.api-port }}/health" > /dev/null; then
+            echo "pgBranch proxy is ready"
+            break
+          fi
+          sleep 1
+        done
+
+    - name: Create branch
+      id: create
+      shell: bash
+      run: |
+        BRANCH_NAME="${{ inputs.branch }}"
+        
+        TTL_FLAG=""
+        if [ -n "${{ inputs.ttl }}" ]; then
+          TTL_FLAG="--ttl ${{ inputs.ttl }}"
+        fi
+        
+        pgbranch create "$BRANCH_NAME" $TTL_FLAG
+        
+        DATABASE_URL="postgres://localhost:${{ inputs.proxy-port }}/${BRANCH_NAME}"
+        
+        echo "database-url=${DATABASE_URL}" >> $GITHUB_OUTPUT
+        echo "branch-name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+        
+        echo "✅ Branch created: ${BRANCH_NAME}"
+        echo "📍 Database URL: ${DATABASE_URL}"
+
+    - name: Register cleanup
+      if: inputs.cleanup == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          // Register post-job cleanup
+          core.saveState('branch-name', '${{ steps.create.outputs.branch-name }}');
+
+    - name: Cleanup branch
+      if: always() && inputs.cleanup == 'true'
+      shell: bash
+      run: |
+        BRANCH_NAME="${{ steps.create.outputs.branch-name }}"
+        if [ -n "$BRANCH_NAME" ]; then
+          pgbranch delete "$BRANCH_NAME" --force || true
+          echo "🧹 Branch cleaned up: ${BRANCH_NAME}"
+        fi

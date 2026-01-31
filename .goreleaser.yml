@@ -1,0 +1,129 @@
+version: 2
+
+project_name: pgBranch
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: pgbranch
+    main: ./cmd/pgbranch
+    binary: pgbranch
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.buildTime={{.Date}}
+
+archives:
+  - id: default
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: YOUR_USERNAME
+    name: pgbranch
+  draft: false
+  prerelease: auto
+  name_template: "{{.Tag}}"
+
+brews:
+  - name: pgbranch
+    repository:
+      owner: YOUR_USERNAME
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://pgbranch.dev"
+    description: "Instant, copy-on-write database branches for Postgres"
+    license: "Apache-2.0"
+    install: |
+      bin.install "pgbranch"
+    test: |
+      system "#{bin}/pgbranch", "--version"
+
+dockers:
+  - image_templates:
+      - "pgbranch/pgbranch:{{ .Version }}-amd64"
+      - "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}-amd64"
+    use: buildx
+    dockerfile: docker/Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--build-arg=VERSION={{.Version}}"
+      - "--build-arg=COMMIT={{.ShortCommit}}"
+      - "--build-arg=BUILD_TIME={{.Date}}"
+
+  - image_templates:
+      - "pgbranch/pgbranch:{{ .Version }}-arm64"
+      - "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}-arm64"
+    use: buildx
+    dockerfile: docker/Dockerfile
+    goarch: arm64
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--build-arg=VERSION={{.Version}}"
+      - "--build-arg=COMMIT={{.ShortCommit}}"
+      - "--build-arg=BUILD_TIME={{.Date}}"
+
+docker_manifests:
+  - name_template: "pgbranch/pgbranch:{{ .Version }}"
+    image_templates:
+      - "pgbranch/pgbranch:{{ .Version }}-amd64"
+      - "pgbranch/pgbranch:{{ .Version }}-arm64"
+
+  - name_template: "pgbranch/pgbranch:latest"
+    image_templates:
+      - "pgbranch/pgbranch:{{ .Version }}-amd64"
+      - "pgbranch/pgbranch:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}-amd64"
+      - "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/YOUR_USERNAME/pgbranch:latest"
+    image_templates:
+      - "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}-amd64"
+      - "ghcr.io/YOUR_USERNAME/pgbranch:{{ .Version }}-arm64"
+
+announce:
+  skip: true
