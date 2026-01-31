@@ -59,7 +59,7 @@ changelog:
 
 release:
   github:
-    owner: YOUR_USERNAME
+    owner: pgbranch
     name: pgbranch
   draft: false
   prerelease: auto
