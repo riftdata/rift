@@ -2,7 +2,7 @@
 
 Instant, copy-on-write database branches for Postgres. Self-hosted. Every PR gets its own database.
 
-> ⚠️ **Status: Early Development** — Not ready for production use.
+> **Status: Early Development** — Not ready for production use.
 
 ## The Problem
 
@@ -67,11 +67,46 @@ connects normally—it just sees an isolated database.
 - [ ] **Web dashboard** — Visualize branches, storage, connections
 - [ ] **Zero vendor lock-in** — Self-hosted, works with your existing database
 
-## Quick Start
-```bash
-# Install (coming soon...)
-curl -fsSL https://riftdata.io/install.sh | sh
+## Installation
 
+### Homebrew (macOS / Linux)
+
+```bash
+brew install riftdata/tap/rift
+```
+
+### npm / npx
+
+```bash
+npm install -g @rift-data/cli
+# or run without installing
+npx @rift-data/cli --help
+```
+
+### Shell installer
+```bash
+curl -fsSL https://riftdata.io/install.sh | sh
+```
+
+### Docker
+
+```bash
+docker pull riftdata/rift:latest
+docker run -e rift_UPSTREAM_URL=postgres://host:5432/mydb riftdata/rift
+```
+
+### From source
+
+```bash
+git clone https://github.com/riftdata/rift.git
+cd rift
+make build
+./bin/rift --help
+```
+
+## Quick Start
+
+```bash
 # Point at your existing Postgres
 rift init --upstream postgres://localhost:5432/myapp
 
@@ -83,6 +118,86 @@ rift create my-feature
 
 # Connect to it
 psql postgres://localhost:6432/my-feature
+```
+
+## Docker Compose
+
+A full local development environment is provided:
+
+```bash
+# Start Postgres + rift
+docker compose -f docker/docker-compose.yml up -d
+
+# Optionally include pgAdmin
+docker compose -f docker/docker-compose.yml --profile tools up -d
+```
+
+Services:
+| Service | Port | Description |
+|---------|------|-------------|
+| postgres | 5432 | Upstream PostgreSQL 17 |
+| rift | 6432, 8080 | Proxy + HTTP API |
+| pgadmin | 5050 | Database admin UI (optional) |
+
+## Configuration
+
+rift is configured via YAML file, environment variables, or CLI flags (highest priority wins).
+
+### Environment Variables
+
+All config keys use the `rift_` prefix with underscores replacing dots:
+
+| Variable            | Default      | Description                          |
+|---------------------|--------------|--------------------------------------|
+| `rift_UPSTREAM_URL` | *(required)* | PostgreSQL connection string         |
+| `rift_LISTEN_ADDR`  | `:6432`      | Proxy listen address                 |
+| `rift_API_ADDR`     | `:8080`      | HTTP API listen address              |
+| `rift_DATA_DIR`     | `~/.rift`    | Data storage directory               |
+| `rift_LOG_LEVEL`    | `info`       | Log level (debug, info, warn, error) |
+| `rift_LOG_FORMAT`   | `text`       | Log format (text, json)              |
+
+### Config File
+
+Config is searched in order: `./config.yaml` → `~/.rift/config.yaml` → `/etc/rift/config.yaml`.
+
+```yaml
+upstream:
+  url: postgres://localhost:5432/myapp
+  max_connections: 10
+  ssl_mode: prefer
+
+proxy:
+  listen_addr: ":6432"
+  max_connections: 100
+
+api:
+  enabled: true
+  listen_addr: ":8080"
+
+storage:
+  data_dir: ~/.rift
+  retention_days: 30
+
+log:
+  level: info
+  format: text
+```
+
+### CLI Commands
+
+```
+rift init          Initialize rift with an upstream database
+rift serve         Start the proxy server
+rift create        Create a new branch
+rift list          List all branches
+rift delete        Delete a branch
+rift status        Show branch/system status
+rift diff          Compare branches
+rift merge         Generate merge SQL
+rift connect       Open psql session to a branch
+rift config        Manage configuration (show, set, path)
+rift version       Show version information
+rift completion    Generate shell completions (bash, zsh, fish, powershell)
 ```
 
 ## CI Integration
@@ -99,18 +214,18 @@ jobs:
         image: riftdata/rift:latest
         env:
           rift_UPSTREAM: ${{ secrets.DATABASE_URL }}
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Create branch
         run: rift create pr-${{ github.event.number }}
-      
+
       - name: Run migrations
         run: npm run db:migrate
         env:
           DATABASE_URL: postgres://localhost:6432/pr-${{ github.event.number }}
-      
+
       - name: Run tests
         run: npm test
 ```
@@ -140,12 +255,12 @@ jobs:
 
 | Feature                | rift | Neon | PlanetScale | pg_dump |
 |------------------------|------|------|-------------|---------|
-| Self-hosted            | ✅    | ❌    | ❌           | ✅       |
-| Instant branches       | ✅    | ✅    | ✅           | ❌       |
-| Copy-on-write          | ✅    | ✅    | ✅           | ❌       |
-| Works with existing DB | ✅    | ❌    | ❌           | ✅       |
-| Postgres native        | ✅    | ✅    | ❌           | ✅       |
-| Free                   | ✅    | ❌    | ❌           | ✅       |
+| Self-hosted            | Y    | N    | N           | Y       |
+| Instant branches       | Y    | Y    | Y           | N       |
+| Copy-on-write          | Y    | Y    | Y           | N       |
+| Works with existing DB | Y    | N    | N           | Y       |
+| Postgres native        | Y    | Y    | N           | Y       |
+| Free                   | Y    | N    | N           | Y       |
 
 ## Roadmap
 
@@ -156,10 +271,10 @@ jobs:
 - [ ] Copy-on-write for writes
 
 **Phase 2: Usable**
-- [ ] CLI with branch management
 - [ ] Transaction support
 - [ ] Connection pooling
 - [ ] DDL tracking
+- [ ] Branch TTL and auto-cleanup
 
 **Phase 3: Production-ready**
 - [ ] Web dashboard
@@ -170,29 +285,42 @@ jobs:
 ## Project Structure
 ```
 rift/
-├── cmd/rift/         # CLI entry point
+├── cmd/rift/              # CLI entry point (cobra commands)
 ├── internal/
-│   ├── proxy/            # Postgres wire protocol
-│   ├── branch/           # Branch management
-│   ├── cow/              # Copy-on-write engine
-│   ├── storage/          # Delta storage layer
-│   └── router/           # Query routing
-├── pkg/
-│   └── pgwire/           # Postgres protocol implementation
-└── web/                  # Dashboard (later)
+│   ├── config/            # Configuration loading (viper)
+│   └── ui/                # Terminal UI (bubbletea, lipgloss)
+├── docker/                # Dockerfiles + docker-compose
+├── scripts/               # Install and release scripts
+├── npm/                   # Platform-specific npm packages
+├── tests/integration/     # Integration tests
+├── .github/workflows/     # CI, Release, Docker pipelines
+├── .goreleaser.yml        # Cross-platform build config
+└── Makefile               # Development automation
 ```
 
-## Contributing
+## Development
 
-This project is in early development. Contributions welcome!
+```bash
+# Prerequisites: Go 1.25.6+, Docker, Make
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing`)
-5. Open a Pull Request
+# Clone and build
+git clone https://github.com/riftdata/rift.git
+cd rift && make build
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+# Start a dev database
+make db-up
+
+# Run tests
+make test           # Unit tests
+make test-race      # With race detector
+make test-integration  # Integration tests (needs PostgreSQL)
+make check          # Full pre-merge gate (fmt + lint + vet + test)
+
+# Hot reload (requires air)
+make dev
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 
 ## License
 
