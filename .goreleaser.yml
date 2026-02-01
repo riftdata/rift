@@ -1,6 +1,6 @@
 version: 2
 
-project_name: pgBranch
+project_name: rift
 
 before:
   hooks:
@@ -8,9 +8,9 @@ before:
     - go generate ./...
 
 builds:
-  - id: pgbranch
-    main: ./cmd/pgbranch
-    binary: pgbranch
+  - id: rift
+    main: ./cmd/rift
+    binary: rift
     env:
       - CGO_ENABLED=0
     goos:
@@ -59,31 +59,31 @@ changelog:
 
 release:
   github:
-    owner: pgbranch
-    name: pgbranch
+    owner: rift
+    name: rift
   draft: false
   prerelease: auto
   name_template: "{{.Tag}}"
 
 brews:
-  - name: pgbranch
+  - name: rift
     repository:
-      owner: pgbranch
+      owner: rift
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
-    homepage: "https://pgbranch.dev"
+    homepage: "https://rift.dev"
     description: "Instant, copy-on-write database branches for Postgres"
     license: "Apache-2.0"
     install: |
-      bin.install "pgbranch"
+      bin.install "rift"
     test: |
-      system "#{bin}/pgbranch", "--version"
+      system "#{bin}/rift", "--version"
 
 dockers:
   - image_templates:
-      - "pgbranch/pgbranch:{{ .Version }}-amd64"
-      - "ghcr.io/pgbranch/pgbranch:{{ .Version }}-amd64"
+      - "riftdata/rift:{{ .Version }}-amd64"
+      - "ghcr.io/riftdata/rift:{{ .Version }}-amd64"
     use: buildx
     dockerfile: docker/Dockerfile
     build_flag_templates:
@@ -93,8 +93,8 @@ dockers:
       - "--build-arg=BUILD_TIME={{.Date}}"
 
   - image_templates:
-      - "pgbranch/pgbranch:{{ .Version }}-arm64"
-      - "ghcr.io/pgbranch/pgbranch:{{ .Version }}-arm64"
+      - "riftdata/rift:{{ .Version }}-arm64"
+      - "ghcr.io/riftdata/rift:{{ .Version }}-arm64"
     use: buildx
     dockerfile: docker/Dockerfile
     goarch: arm64
@@ -105,25 +105,25 @@ dockers:
       - "--build-arg=BUILD_TIME={{.Date}}"
 
 docker_manifests:
-  - name_template: "pgbranch/pgbranch:{{ .Version }}"
+  - name_template: "riftdata/rift:{{ .Version }}"
     image_templates:
-      - "pgbranch/pgbranch:{{ .Version }}-amd64"
-      - "pgbranch/pgbranch:{{ .Version }}-arm64"
+      - "riftdata/rift:{{ .Version }}-amd64"
+      - "riftdata/rift:{{ .Version }}-arm64"
 
-  - name_template: "pgbranch/pgbranch:latest"
+  - name_template: "riftdata/rift:latest"
     image_templates:
-      - "pgbranch/pgbranch:{{ .Version }}-amd64"
-      - "pgbranch/pgbranch:{{ .Version }}-arm64"
+      - "riftdata/rift:{{ .Version }}-amd64"
+      - "riftdata/rift:{{ .Version }}-arm64"
 
-  - name_template: "ghcr.io/pgbranch/pgbranch:{{ .Version }}"
+  - name_template: "ghcr.io/riftdata/rift:{{ .Version }}"
     image_templates:
-      - "ghcr.io/pgbranch/pgbranch:{{ .Version }}-amd64"
-      - "ghcr.io/pgbranch/pgbranch:{{ .Version }}-arm64"
+      - "ghcr.io/riftdata/rift:{{ .Version }}-amd64"
+      - "ghcr.io/riftdata/rift:{{ .Version }}-arm64"
 
-  - name_template: "ghcr.io/pgbranch/pgbranch:latest"
+  - name_template: "ghcr.io/riftdata/rift:latest"
     image_templates:
-      - "ghcr.io/pgbranch/pgbranch:{{ .Version }}-amd64"
-      - "ghcr.io/pgbranch/pgbranch:{{ .Version }}-arm64"
+      - "ghcr.io/riftdata/rift:{{ .Version }}-amd64"
+      - "ghcr.io/riftdata/rift:{{ .Version }}-arm64"
 
 announce:
   skip: true

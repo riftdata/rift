@@ -53,7 +53,7 @@ jobs:
         with:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            pgbranch/pgbranch
+            riftdata/rift
           tags: |
             type=ref,event=branch
             type=ref,event=pr

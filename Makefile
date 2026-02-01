@@ -1,7 +1,7 @@
 .PHONY: build run test lint fmt clean test-race test-cover test-integration dev install release docker docker-push help
 
 # Variables
-BINARY := pgbranch
+BINARY := rift
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
@@ -18,7 +18,7 @@ DIST_DIR := dist
 DATA_DIR := data
 
 # Docker
-DOCKER_IMAGE := pgbranch/pgbranch
+DOCKER_IMAGE := riftdata/rift
 DOCKER_TAG ?= $(VERSION)
 
 # Colors
@@ -36,16 +36,16 @@ help: ## Display this help
 build: ## Build the binary
 	@echo "$(GREEN)Building $(BINARY)...$(NC)"
 	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY) ./cmd/pgbranch
+	CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY) ./cmd/rift
 
 build-all: ## Build for all platforms
 	@echo "$(GREEN)Building for all platforms...$(NC)"
 	@mkdir -p $(DIST_DIR)
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-linux-amd64 ./cmd/pgbranch
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-linux-arm64 ./cmd/pgbranch
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-darwin-amd64 ./cmd/pgbranch
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-darwin-arm64 ./cmd/pgbranch
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-windows-amd64.exe ./cmd/pgbranch
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-linux-amd64 ./cmd/rift
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-linux-arm64 ./cmd/rift
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-darwin-amd64 ./cmd/rift
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-darwin-arm64 ./cmd/rift
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-windows-amd64.exe ./cmd/rift
 
 run: build ## Run the proxy server
 	./$(BIN_DIR)/$(BINARY) serve
@@ -126,16 +126,16 @@ docker-logs: ## View Docker Compose logs
 
 db-up: ## Start PostgreSQL for development
 	docker run -d \
-		--name pgbranch-postgres \
+		--name rift-postgres \
 		-e POSTGRES_PASSWORD=postgres \
-		-e POSTGRES_DB=pgbranch \
+		-e POSTGRES_DB=rift \
 		-p 5432:5432 \
 		postgres:16
 	@echo "$(GREEN)PostgreSQL started on localhost:5432$(NC)"
 
 db-down: ## Stop development PostgreSQL
-	docker stop pgbranch-postgres || true
-	docker rm pgbranch-postgres || true
+	docker stop rift-postgres || true
+	docker rm rift-postgres || true
 
 db-reset: db-down db-up ## Reset development database
 
@@ -160,7 +160,7 @@ docs: ## Generate documentation
 
 docs-serve: ## Serve documentation locally
 	@which godoc > /dev/null || go install golang.org/x/tools/cmd/godoc@latest
-	@echo "$(GREEN)Documentation server: http://localhost:6060/pkg/github.com/pgbranch/pgbranch/$(NC)"
+	@echo "$(GREEN)Documentation server: http://localhost:6060/pkg/github.com/riftdata/rift/$(NC)"
 	godoc -http=:6060
 
 ##@ Cleanup
@@ -176,13 +176,13 @@ clean-all: clean db-down docker-down ## Clean everything including Docker
 ##@ Demo
 
 demo: build ## Run a demo
-	@echo "$(GREEN)=== pgbranch Demo ===$(NC)"
+	@echo "$(GREEN)=== rift Demo ===$(NC)"
 	@echo ""
 	@echo "Starting PostgreSQL..."
 	@make db-up 2>/dev/null || true
 	@sleep 3
 	@echo ""
-	@echo "Initializing pgbranch..."
+	@echo "Initializing rift..."
 	./$(BIN_DIR)/$(BINARY) init --upstream postgres://postgres:postgres@localhost:5432/postgres
 	@echo ""
 	@echo "Starting proxy..."

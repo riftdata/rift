@@ -1,6 +1,6 @@
-# Contributing to pgBranch
+# Contributing to RiftDB
 
-Thanks for your interest in contributing to pgBranch! This project is in early development, and contributions are welcome.
+Thanks for your interest in contributing to Rift! This project is in early development, and contributions are welcome.
 
 ## Table of Contents
 
@@ -26,8 +26,8 @@ Thanks for your interest in contributing to pgBranch! This project is in early d
 ### Quick Start
 ```bash
 # Clone the repository
-git clone https://github.com/pgbranch/pgBranch.git
-cd pgBranch
+git clone https://github.com/riftdata/rift.git
+cd rift
 
 # Install dependencies
 go mod download
@@ -39,16 +39,16 @@ make test
 make build
 
 # Run locally
-./bin/pgBranch --help
+./bin/rift --help
 ```
 
 ## Development Setup
 
 ### 1. Fork and Clone
 ```bash
-git clone https://github.com/pgbranch/pgBranch.git
-cd pgBranch
-git remote add upstream https://github.com/pgbranch/pgbranch.git
+git clone https://github.com/riftdata/rift.git
+cd rift
+git remote add upstream https://github.com/riftdata/rift.git
 ```
 
 ### 2. Set Up PostgreSQL
@@ -57,23 +57,23 @@ You need a local PostgreSQL instance for development and testing:
 ```bash
 # Using Docker (recommended)
 docker run -d \
-  --name pgBranch-dev \
+  --name rift-dev \
   -e POSTGRES_PASSWORD=postgres \
   -p 5432:5432 \
   postgres:16
 
 # Or use your system PostgreSQL
-createdb pgbranch_test
+createdb rift_test
 ```
 
 ### 3. Environment Variables
 ```bash
 # Create a .env file for local development
 cat > .env << EOF
-pgbranch_UPSTREAM_URL=postgres://postgres:postgres@localhost:5432/postgres
-pgbranch_LISTEN_ADDR=:6432
-pgbranch_DATA_DIR=./data
-pgbranch_LOG_LEVEL=debug
+rift_UPSTREAM_URL=postgres://postgres:postgres@localhost:5432/postgres
+rift_LISTEN_ADDR=:6432
+rift_DATA_DIR=./data
+rift_LOG_LEVEL=debug
 EOF
 ```
 
@@ -91,8 +91,8 @@ make test-integration
 
 ## Project Structure
 ```
-pgBranch/
-├── cmd/pgBranch/         # CLI entry point
+rift/
+├── cmd/rift/         # CLI entry point
 ├── internal/
 │   ├── pgwire/           # Postgres wire protocol (start here to understand)
 │   ├── proxy/            # Connection proxying
@@ -104,7 +104,7 @@ pgBranch/
 │   ├── catalog/          # Schema tracking
 │   ├── cli/              # CLI commands
 │   └── api/              # HTTP API
-├── pkg/pgBranch/         # Public Go client
+├── pkg/rift/         # Public Go client
 └── docs/                 # Documentation
 ```
 
@@ -383,17 +383,19 @@ How to test these changes:
 ### Bug Reports
 
 Include:
-- pgBranch version (`pgBranch --version`)
+
+- rift version (`rift --version`)
 - PostgreSQL version
 - Operating system
 - Steps to reproduce
 - Expected vs. actual behavior
 - Relevant logs (with sensitive info removed)
 ```markdown
-**Version:** pgBranch v0.1.0, PostgreSQL 16.1, macOS 14.0
+**Version:** rift v0.1.0, PostgreSQL 16.1, macOS 14.0
 
 **Steps to reproduce:**
-1. Create a branch: `pgBranch create test`
+
+1. Create a branch: `rift create test`
 2. Connect: `psql postgres://localhost:6432/test`
 3. Run: `SELECT * FROM users`
 
@@ -450,4 +452,4 @@ Every contribution matters, whether it's:
 - Suggesting a feature
 - Writing code
 
-We appreciate your time and effort in making pgBranch better.
+We appreciate your time and effort in making rift better.

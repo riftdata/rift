@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/pgbranch/pgbranch/internal/config"
-	"github.com/pgbranch/pgbranch/internal/ui"
+	"github.com/riftdata/rift/internal/config"
+	"github.com/riftdata/rift/internal/ui"
 )
 
 // Build-time variables
@@ -68,17 +68,17 @@ func run() int {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "pgbranch",
+	Use:   "rift",
 	Short: "Instant, copy-on-write database branches for Postgres",
-	Long: `pgbranch creates instant database branches using copy-on-write.
+	Long: `rift creates instant database branches using copy-on-write.
 A 500GB production database branches in milliseconds, storing only the rows you change.
 
 Get started:
-  pgbranch init --upstream postgres://localhost:5432/mydb
-  pgbranch serve
-  pgbranch create my-feature-branch
+  rift init --upstream postgres://localhost:5432/mydb
+  rift serve
+  rift create my-feature-branch
 
-Documentation: https://pgbranch.dev/docs`,
+Documentation: https://rift.dev/docs`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -121,7 +121,7 @@ var versionCmd = &cobra.Command{
 			return
 		}
 
-		out.Title("pgbranch")
+		out.Title("rift")
 		out.KeyValue("Version", version)
 		out.KeyValue("Commit", commit)
 		out.KeyValue("Built", buildTime)
@@ -133,17 +133,17 @@ var versionCmd = &cobra.Command{
 var completionCmd = &cobra.Command{
 	Use:   "completion [bash|zsh|fish|powershell]",
 	Short: "Generate shell completion scripts",
-	Long: `Generate shell completion scripts for pgbranch.
+	Long: `Generate shell completion scripts for rift.
 
 To load completions:
 
 Bash:
-  $ source <(pgbranch completion bash)
+  $ source <(rift completion bash)
   # To load completions for each session, execute once:
   # Linux:
-  $ pgbranch completion bash > /etc/bash_completion.d/pgbranch
+  $ rift completion bash > /etc/bash_completion.d/rift
   # macOS:
-  $ pgbranch completion bash > $(brew --prefix)/etc/bash_completion.d/pgbranch
+  $ rift completion bash > $(brew --prefix)/etc/bash_completion.d/rift
 
 Zsh:
   # If shell completion is not already enabled in your environment,
@@ -151,19 +151,19 @@ Zsh:
   $ echo "autoload -U compinit; compinit" >> ~/.zshrc
   
   # To load completions for each session, execute once:
-  $ pgbranch completion zsh > "${fpath[1]}/_pgbranch"
+  $ rift completion zsh > "${fpath[1]}/_rift"
   
   # You will need to start a new shell for this setup to take effect.
 
 Fish:
-  $ pgbranch completion fish | source
+  $ rift completion fish | source
   # To load completions for each session, execute once:
-  $ pgbranch completion fish > ~/.config/fish/completions/pgbranch.fish
+  $ rift completion fish > ~/.config/fish/completions/rift.fish
 
 PowerShell:
-  PS> pgbranch completion powershell | Out-String | Invoke-Expression
+  PS> rift completion powershell | Out-String | Invoke-Expression
   # To load completions for every new session, run:
-  PS> pgbranch completion powershell > pgbranch.ps1
+  PS> rift completion powershell > rift.ps1
   # and source this file from your PowerShell profile.
 `,
 	DisableFlagsInUseLine: true,
@@ -197,33 +197,33 @@ PowerShell:
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize pgbranch with an upstream database",
-	Long: `Initialize pgbranch by connecting to an upstream PostgreSQL database.
-This creates the necessary metadata and prepares pgbranch for branching.
+	Short: "Initialize rift with an upstream database",
+	Long: `Initialize rift by connecting to an upstream PostgreSQL database.
+This creates the necessary metadata and prepares rift for branching.
 
 If --upstream is not provided, an interactive prompt will guide you through setup.`,
 	Example: `  # Interactive setup
-  pgbranch init
+  rift init
 
   # With connection URL
-  pgbranch init --upstream postgres://user:pass@localhost:5432/mydb
+  rift init --upstream postgres://user:pass@localhost:5432/mydb
 
   # With custom data directory
-  pgbranch init --upstream postgres://localhost/mydb --data-dir /var/lib/pgbranch`,
+  rift init --upstream postgres://localhost/mydb --data-dir /var/lib/rift`,
 	RunE: runInit,
 }
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Start the pgbranch proxy server",
-	Long: `Start the pgbranch proxy server. This accepts PostgreSQL connections
+	Short: "Start the rift proxy server",
+	Long: `Start the rift proxy server. This accepts PostgreSQL connections
 and routes them to the appropriate branch.
 
 The proxy listens for Postgres connections on --listen (default :6432) and
 serves the HTTP API/dashboard on --api (default :8080).`,
-	Example: `  pgbranch serve
-  pgbranch serve --listen :6432 --api :8080
-  pgbranch serve --config /etc/pgbranch/config.yaml`,
+	Example: `  rift serve
+  rift serve --listen :6432 --api :8080
+  rift serve --config /etc/rift/config.yaml`,
 	RunE: runServe,
 }
 
@@ -235,16 +235,16 @@ The branch is created instantly using copy-on-write.
 
 If branch-name is not provided, an interactive prompt will guide you.`,
 	Example: `  # Interactive
-  pgbranch create
+  rift create
 
   # With name
-  pgbranch create feature-auth
+  rift create feature-auth
 
   # From specific parent
-  pgbranch create feature-auth --parent staging
+  rift create feature-auth --parent staging
 
   # With auto-delete
-  pgbranch create pr-123 --ttl 24h`,
+  rift create pr-123 --ttl 24h`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runCreate,
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -258,8 +258,8 @@ var deleteCmd = &cobra.Command{
 	Aliases: []string{"rm", "remove"},
 	Short:   "Delete a branch",
 	Long:    `Delete a branch and free its storage. This cannot be undone.`,
-	Example: `  pgbranch delete feature-auth
-  pgbranch delete pr-123 --force`,
+	Example: `  rift delete feature-auth
+  rift delete pr-123 --force`,
 	Args:              cobra.ExactArgs(1),
 	RunE:              runDelete,
 	ValidArgsFunction: completeBranches,
@@ -270,9 +270,9 @@ var listCmd = &cobra.Command{
 	Aliases: []string{"ls"},
 	Short:   "List all branches",
 	Long:    `List all branches with their status, parent, and storage usage.`,
-	Example: `  pgbranch list
-  pgbranch list --format json
-  pgbranch list --all`,
+	Example: `  rift list
+  rift list --format json
+  rift list --all`,
 	RunE: runList,
 }
 
@@ -280,8 +280,8 @@ var statusCmd = &cobra.Command{
 	Use:   "status [branch-name]",
 	Short: "Show branch or system status",
 	Long:  `Show detailed status of a branch or the overall system.`,
-	Example: `  pgbranch status
-  pgbranch status feature-auth`,
+	Example: `  rift status
+  rift status feature-auth`,
 	Args:              cobra.MaximumNArgs(1),
 	RunE:              runStatus,
 	ValidArgsFunction: completeBranches,
@@ -292,9 +292,9 @@ var diffCmd = &cobra.Command{
 	Short: "Show differences between branches",
 	Long: `Show schema and data differences between two branches.
 If branch2 is omitted, compares against main.`,
-	Example: `  pgbranch diff feature-auth
-  pgbranch diff feature-auth staging
-  pgbranch diff feature-auth --schema-only`,
+	Example: `  rift diff feature-auth
+  rift diff feature-auth staging
+  rift diff feature-auth --schema-only`,
 	Args:              cobra.RangeArgs(1, 2),
 	RunE:              runDiff,
 	ValidArgsFunction: completeBranches,
@@ -305,9 +305,9 @@ var mergeCmd = &cobra.Command{
 	Short: "Generate merge SQL for a branch",
 	Long: `Generate SQL statements to merge a branch's changes into its parent.
 This does not execute the SQL, only outputs it.`,
-	Example: `  pgbranch merge feature-auth
-  pgbranch merge feature-auth --dry-run
-  pgbranch merge feature-auth > migration.sql`,
+	Example: `  rift merge feature-auth
+  rift merge feature-auth --dry-run
+  rift merge feature-auth > migration.sql`,
 	Args:              cobra.ExactArgs(1),
 	RunE:              runMerge,
 	ValidArgsFunction: completeBranches,
@@ -317,8 +317,8 @@ var connectCmd = &cobra.Command{
 	Use:   "connect <branch-name>",
 	Short: "Connect to a branch using psql",
 	Long:  `Open an interactive psql session connected to the specified branch.`,
-	Example: `  pgbranch connect feature-auth
-  pgbranch connect main`,
+	Example: `  rift connect feature-auth
+  rift connect main`,
 	Args:              cobra.ExactArgs(1),
 	RunE:              runConnect,
 	ValidArgsFunction: completeBranches,
@@ -327,7 +327,7 @@ var connectCmd = &cobra.Command{
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Manage configuration",
-	Long:  `View and manage pgbranch configuration.`,
+	Long:  `View and manage rift configuration.`,
 }
 
 var configShowCmd = &cobra.Command{
@@ -373,7 +373,7 @@ var (
 
 func init() {
 	// Global flags
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: $HOME/.pgbranch/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: $HOME/.rift/config.yaml)")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable color output")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-essential output")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
@@ -381,7 +381,7 @@ func init() {
 
 	// init flags
 	initCmd.Flags().StringVar(&upstreamURL, "upstream", "", "upstream PostgreSQL connection URL")
-	initCmd.Flags().StringVar(&dataDir, "data-dir", "", "data directory (default: $HOME/.pgbranch)")
+	initCmd.Flags().StringVar(&dataDir, "data-dir", "", "data directory (default: $HOME/.rift)")
 	initCmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "force interactive mode")
 
 	// serve flags
@@ -459,7 +459,7 @@ func completeBranches(cmd *cobra.Command, args []string, toComplete string) ([]s
 // Command implementations
 
 func runInit(cmd *cobra.Command, args []string) error {
-	out.Title("Initialize pgbranch")
+	out.Title("Initialize rift")
 
 	// Interactive mode if no upstream provided or explicitly requested
 	if upstreamURL == "" || interactive {
@@ -503,21 +503,21 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("saving config: %w", err)
 	}
 
-	out.Success("pgbranch initialized!")
+	out.Success("rift initialized!")
 	out.Print("")
 	out.KeyValue("Config", configPath)
 	out.KeyValue("Data", cfg.Storage.DataDir)
 	out.Print("")
 	out.Info("Next steps:")
-	out.Print("  pgbranch serve    # Start the proxy")
-	out.Print("  pgbranch create   # Create your first branch")
+	out.Print("  rift serve    # Start the proxy")
+	out.Print("  rift create   # Create your first branch")
 
 	return nil
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
 	if cfg == nil {
-		return fmt.Errorf("pgbranch not initialized. Run 'pgbranch init' first")
+		return fmt.Errorf("rift not initialized. Run 'rift init' first")
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -532,7 +532,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		cfg.API.ListenAddr = apiAddr
 	}
 
-	out.Title("pgbranch")
+	out.Title("rift")
 
 	box := fmt.Sprintf(
 		"%s Proxy:     %s\n"+
@@ -667,7 +667,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		out.KeyValue("Status", ui.Success.Render("active"))
 	} else {
 		// System status
-		out.Title("pgbranch Status")
+		out.Title("rift Status")
 
 		out.KeyValue("Proxy", ui.Success.Render("● running"))
 		out.KeyValue("API", ui.Success.Render("● running"))

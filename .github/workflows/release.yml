@@ -78,8 +78,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            pgbranch/pgbranch:${{ steps.version.outputs.VERSION }}
-            pgbranch/pgbranch:latest
+            riftdata/rift:${{ steps.version.outputs.VERSION }}
+            riftdata/rift:latest
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
             ghcr.io/${{ github.repository }}:latest
           build-args: |

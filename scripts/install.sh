@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-# pgbranch installer script
-# Usage: curl -fsSL https://pgbranch.dev/install.sh | sh
+# rift installer script
+# Usage: curl -fsSL https://rift.dev/install.sh | sh
 
 # Colors
 RED='\033[0;31m'
@@ -13,8 +13,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-GITHUB_REPO="pgbranch/pgbranch"
-BINARY_NAME="pgbranch"
+GITHUB_REPO="riftdata/rift"
+BINARY_NAME="rift"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 # Functions
@@ -74,7 +74,7 @@ install() {
         exit 1
     fi
 
-    log_info "Installing pgbranch $VERSION"
+    log_info "Installing rift $VERSION"
 
     # Construct download URL
     if [[ "$OS" == "windows" ]]; then
@@ -120,26 +120,26 @@ install() {
     fi
 
     # Verify installation
-    if command -v pgbranch &> /dev/null; then
+    if command -v rift &> /dev/null; then
         log_info "Installation complete!"
         echo ""
-        pgbranch --version
+        rift --version
         echo ""
         echo -e "${BLUE}Get started:${NC}"
-        echo "  pgbranch init --upstream postgres://localhost:5432/mydb"
-        echo "  pgbranch serve"
-        echo "  pgbranch create my-feature-branch"
+        echo "  rift init --upstream postgres://localhost:5432/mydb"
+        echo "  rift serve"
+        echo "  rift create my-feature-branch"
         echo ""
-        echo "Documentation: https://pgbranch.dev/docs"
+        echo "Documentation: https://rift.dev/docs"
     else
-        log_warn "pgbranch installed but not in PATH"
-        log_warn "Add $INSTALL_DIR to your PATH or run: $INSTALL_DIR/pgbranch"
+        log_warn "rift installed but not in PATH"
+        log_warn "Add $INSTALL_DIR to your PATH or run: $INSTALL_DIR/rift"
     fi
 }
 
 # Uninstall
 uninstall() {
-    log_info "Uninstalling pgbranch"
+    log_info "Uninstalling rift"
 
     if [[ -f "$INSTALL_DIR/$BINARY_NAME" ]]; then
         if [[ -w "$INSTALL_DIR" ]]; then
@@ -147,9 +147,9 @@ uninstall() {
         else
             sudo rm "$INSTALL_DIR/$BINARY_NAME"
         fi
-        log_info "pgbranch removed"
+        log_info "rift removed"
     else
-        log_warn "pgbranch not found in $INSTALL_DIR"
+        log_warn "rift not found in $INSTALL_DIR"
     fi
 }
 

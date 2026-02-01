@@ -40,7 +40,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: pgbranch_test
+          POSTGRES_DB: rift_test
         ports:
           - 5432:5432
         options: >-
@@ -77,7 +77,7 @@ jobs:
       - name: Run integration tests
         run: go test -v -race -tags=integration ./tests/integration/...
         env:
-          PGBRANCH_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/pgbranch_test?sslmode=disable
+          rift_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/rift_test?sslmode=disable
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -124,14 +124,14 @@ jobs:
           
           go build \
             -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildTime=${BUILD_TIME}" \
-            -o pgbranch-${{ matrix.goos }}-${{ matrix.goarch }}${EXT} \
-            ./cmd/pgbranch
+            -o rift-${{ matrix.goos }}-${{ matrix.goarch }}${EXT} \
+            ./cmd/rift
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pgbranch-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: pgbranch-*
+          name: rift-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: rift-*
           retention-days: 7
 
   security:

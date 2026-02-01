@@ -1,4 +1,4 @@
-module github.com/pgbranch/pgbranch
+module github.com/riftdata/rift
 
 go 1.25.6
 

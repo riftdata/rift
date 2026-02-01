@@ -1,6 +1,6 @@
-name: 'pgBranch'
+name: 'rift'
 description: 'Create instant database branches for your CI tests'
-author: 'pgBranch'
+author: 'rift'
 
 branding:
   icon: 'git-branch'
@@ -15,7 +15,7 @@ inputs:
     required: false
     default: 'pr-${{ github.event.number }}'
   version:
-    description: 'pgBranch version to use'
+    description: 'rift version to use'
     required: false
     default: 'latest'
   ttl:
@@ -46,32 +46,32 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install pgBranch
+    - name: Install rift
       shell: bash
       run: |
         VERSION="${{ inputs.version }}"
         if [ "$VERSION" = "latest" ]; then
-          curl -fsSL https://pgbranch.dev/install.sh | sh
+          curl -fsSL https://rift.dev/install.sh | sh
         else
-          curl -fsSL https://pgbranch.dev/install.sh | VERSION="$VERSION" sh
+          curl -fsSL https://rift.dev/install.sh | VERSION="$VERSION" sh
         fi
 
-    - name: Initialize pgBranch
+    - name: Initialize rift
       shell: bash
       run: |
-        pgbranch init --upstream "${{ inputs.upstream }}"
+        rift init --upstream "${{ inputs.upstream }}"
 
-    - name: Start pgBranch proxy
+    - name: Start rift proxy
       shell: bash
       run: |
-        pgbranch serve \
+        rift serve \
           --listen ":${{ inputs.proxy-port }}" \
           --api ":${{ inputs.api-port }}" &
         
         # Wait for proxy to be ready
         for i in {1..30}; do
           if curl -s "http://localhost:${{ inputs.api-port }}/health" > /dev/null; then
-            echo "pgBranch proxy is ready"
+            echo "rift proxy is ready"
             break
           fi
           sleep 1
@@ -88,7 +88,7 @@ runs:
           TTL_FLAG="--ttl ${{ inputs.ttl }}"
         fi
         
-        pgbranch create "$BRANCH_NAME" $TTL_FLAG
+        rift create "$BRANCH_NAME" $TTL_FLAG
         
         DATABASE_URL="postgres://localhost:${{ inputs.proxy-port }}/${BRANCH_NAME}"
         
@@ -112,6 +112,6 @@ runs:
       run: |
         BRANCH_NAME="${{ steps.create.outputs.branch-name }}"
         if [ -n "$BRANCH_NAME" ]; then
-          pgbranch delete "$BRANCH_NAME" --force || true
+          rift delete "$BRANCH_NAME" --force || true
           echo "🧹 Branch cleaned up: ${BRANCH_NAME}"
         fi

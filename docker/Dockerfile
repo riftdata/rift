@@ -24,8 +24,8 @@ ARG BUILD_TIME=unknown
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildTime=${BUILD_TIME}" \
-    -o pgbranch \
-    ./cmd/pgbranch
+    -o rift \
+    ./cmd/rift
 
 # Final stage
 FROM alpine:3.23.3
@@ -34,30 +34,30 @@ FROM alpine:3.23.3
 RUN apk add --no-cache ca-certificates tzdata postgresql-client
 
 # Create non-root user
-RUN addgroup -g 1000 pgbranch && \
-    adduser -u 1000 -G pgbranch -s /bin/sh -D pgbranch
+RUN addgroup -g 1000 rift && \
+    adduser -u 1000 -G rift -s /bin/sh -D rift
 
 # Create data directory
-RUN mkdir -p /data && chown pgbranch:pgbranch /data
+RUN mkdir -p /data && chown rift:rift /data
 
 # Copy binary from builder
-COPY --from=builder /app/pgbranch /usr/local/bin/pgbranch
+COPY --from=builder /app/rift /usr/local/bin/rift
 
 # Copy migrations if any
 # COPY --from=builder /app/migrations /migrations
 
 # Switch to non-root user
-USER pgbranch
+USER rift
 
 # Set working directory
 WORKDIR /data
 
 # Environment variables
-ENV PGBRANCH_LISTEN_ADDR=:6432
-ENV PGBRANCH_API_ADDR=:8080
-ENV PGBRANCH_DATA_DIR=/data
-ENV PGBRANCH_LOG_LEVEL=info
-ENV PGBRANCH_LOG_FORMAT=json
+ENV rift_LISTEN_ADDR=:6432
+ENV rift_API_ADDR=:8080
+ENV rift_DATA_DIR=/data
+ENV rift_LOG_LEVEL=info
+ENV rift_LOG_FORMAT=json
 
 # Expose ports
 # 6432 - Postgres proxy
@@ -69,5 +69,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD wget -q --spider http://localhost:8080/health || exit 1
 
 # Default command
-ENTRYPOINT ["pgbranch"]
+ENTRYPOINT ["rift"]
 CMD ["serve"]

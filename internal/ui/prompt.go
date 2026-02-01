@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// PromptTheme returns the pgbranch theme for prompts
+// PromptTheme returns the rift theme for prompts
 func PromptTheme() *huh.Theme {
 	t := huh.ThemeBase()
 

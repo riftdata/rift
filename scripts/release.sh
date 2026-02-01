@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# Release script for pgbranch
+# Release script for rift
 # Usage: ./scripts/release.sh v1.0.0
 
 VERSION="${1:?Usage: $0 <version> (e.g., v1.0.0)}"
@@ -46,4 +46,4 @@ git push origin "$VERSION"
 
 echo ""
 echo "Tag $VERSION pushed. The release workflow will now run on GitHub Actions."
-echo "Monitor progress at: https://github.com/pgbranch/pgbranch/actions"
+echo "Monitor progress at: https://github.com/riftdata/rift/actions"

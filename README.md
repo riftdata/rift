@@ -1,4 +1,4 @@
-# pgBranch
+# rift
 
 Instant, copy-on-write database branches for Postgres. Self-hosted. Every PR gets its own database.
 
@@ -15,10 +15,11 @@ You need isolated database environments for testing, but:
 
 ## The Solution
 
-pgBranch creates instant database branches using copy-on-write. A 500GB production database branches in milliseconds, storing only the rows you change.
+rift creates instant database branches using copy-on-write. A 500GB production database branches in milliseconds,
+storing only the rows you change.
 ```bash
 # Create a branch (instant, regardless of DB size)
-pgBranch create feature-auth
+rift create feature-auth
 
 # Connect with standard Postgres tools
 psql postgres://localhost:6432/feature-auth
@@ -27,7 +28,7 @@ psql postgres://localhost:6432/feature-auth
 psql -c "DROP TABLE users CASCADE"
 
 # Delete when done
-pgBranch delete feature-auth
+rift delete feature-auth
 ```
 
 ## How It Works
@@ -52,7 +53,8 @@ Branch "feature-auth" modifies row 2, adds row 1000001:
 Storage used: 2 rows, not 1,000,002
 ```
 
-pgBranch acts as a Postgres proxy. Reads fall through to the parent branch. Writes go to an overlay. Your application connects normally—it just sees an isolated database.
+rift acts as a Postgres proxy. Reads fall through to the parent branch. Writes go to an overlay. Your application
+connects normally—it just sees an isolated database.
 
 ## Features
 
@@ -68,16 +70,16 @@ pgBranch acts as a Postgres proxy. Reads fall through to the parent branch. Writ
 ## Quick Start
 ```bash
 # Install (coming soon...)
-curl -fsSL https://pgBranch.dev/install.sh | sh
+curl -fsSL https://rift.dev/install.sh | sh
 
 # Point at your existing Postgres
-pgBranch init --upstream postgres://localhost:5432/myapp
+rift init --upstream postgres://localhost:5432/myapp
 
 # Start the proxy
-pgBranch serve
+rift serve
 
 # Create a branch
-pgBranch create my-feature
+rift create my-feature
 
 # Connect to it
 psql postgres://localhost:6432/my-feature
@@ -93,16 +95,16 @@ jobs:
   test:
     runs-on: ubuntu-latest
     services:
-      pgBranch:
-        image: pgBranch/pgBranch:latest
+      rift:
+        image: riftdata/rift:latest
         env:
-          pgbranch_UPSTREAM: ${{ secrets.DATABASE_URL }}
+          rift_UPSTREAM: ${{ secrets.DATABASE_URL }}
     
     steps:
       - uses: actions/checkout@v4
       
       - name: Create branch
-        run: pgBranch create pr-${{ github.event.number }}
+        run: rift create pr-${{ github.event.number }}
       
       - name: Run migrations
         run: npm run db:migrate
@@ -121,7 +123,7 @@ jobs:
 └────────────────────────────────┬────────────────────────────────┘
                                  │
 ┌────────────────────────────────▼────────────────────────────────┐
-│                         pgBranch proxy                           │
+│                         rift proxy                           │
 │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐    │
 │  │ Wire Protocol  │  │ Query Router   │  │ CoW Engine     │    │
 │  │ (Postgres)     │  │ (per-branch)   │  │ (row-level)    │    │
@@ -136,14 +138,14 @@ jobs:
 
 ## Comparison
 
-| Feature                | pgBranch | Neon | PlanetScale | pg_dump |
-|------------------------|----------|------|-------------|---------|
-| Self-hosted            | ✅        | ❌    | ❌           | ✅       |
-| Instant branches       | ✅        | ✅    | ✅           | ❌       |
-| Copy-on-write          | ✅        | ✅    | ✅           | ❌       |
-| Works with existing DB | ✅        | ❌    | ❌           | ✅       |
-| Postgres native        | ✅        | ✅    | ❌           | ✅       |
-| Free                   | ✅        | ❌    | ❌           | ✅       |
+| Feature                | rift | Neon | PlanetScale | pg_dump |
+|------------------------|------|------|-------------|---------|
+| Self-hosted            | ✅    | ❌    | ❌           | ✅       |
+| Instant branches       | ✅    | ✅    | ✅           | ❌       |
+| Copy-on-write          | ✅    | ✅    | ✅           | ❌       |
+| Works with existing DB | ✅    | ❌    | ❌           | ✅       |
+| Postgres native        | ✅    | ✅    | ❌           | ✅       |
+| Free                   | ✅    | ❌    | ❌           | ✅       |
 
 ## Roadmap
 
@@ -167,8 +169,8 @@ jobs:
 
 ## Project Structure
 ```
-pgBranch/
-├── cmd/pgBranch/         # CLI entry point
+rift/
+├── cmd/rift/         # CLI entry point
 ├── internal/
 │   ├── proxy/            # Postgres wire protocol
 │   ├── branch/           # Branch management

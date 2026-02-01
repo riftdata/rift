@@ -113,9 +113,9 @@ func DefaultConfig() *Config {
 func defaultDataDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ".pgbranch"
+		return ".rift"
 	}
-	return filepath.Join(home, ".pgbranch")
+	return filepath.Join(home, ".rift")
 }
 
 // Load loads configuration from file, env vars, and flags
@@ -152,11 +152,11 @@ func Load(configPath string) (*Config, error) {
 		v.SetConfigType("yaml")
 		v.AddConfigPath(".")
 		v.AddConfigPath(defaultDataDir())
-		v.AddConfigPath("/etc/pgbranch")
+		v.AddConfigPath("/etc/rift")
 	}
 
 	// Environment variables
-	v.SetEnvPrefix("PGBRANCH")
+	v.SetEnvPrefix("rift")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
