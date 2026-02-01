@@ -1,4 +1,4 @@
-# rift
+# RiftDB
 
 Instant, copy-on-write database branches for Postgres. Self-hosted. Every PR gets its own database.
 
