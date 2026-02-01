@@ -1,7 +1,7 @@
 package pgwire
 
 import (
-	"crypto/md5" //nolint:gosec // required by Postgres wire protocol
+	"crypto/md5" // #nosec G501 -- required by Postgres wire protocol
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -273,9 +273,9 @@ func (c *ClientConn) SendCommandComplete(tag string) error {
 // MD5 is required by the protocol specification; this is not a choice of hash.
 func MD5Password(user, password string, salt [4]byte) string {
 	// concat('md5', md5(concat(md5(concat(password, username)), random-salt)))
-	inner := md5.Sum([]byte(password + user)) //nolint:gosec // required by Postgres wire protocol
+	inner := md5.Sum([]byte(password + user)) // #nosec G401 -- required by Postgres wire protocol
 	innerHex := hex.EncodeToString(inner[:])
-	outer := md5.Sum(append([]byte(innerHex), salt[:]...)) //nolint:gosec // required by Postgres wire protocol
+	outer := md5.Sum(append([]byte(innerHex), salt[:]...)) // #nosec G401 -- required by Postgres wire protocol
 	return "md5" + hex.EncodeToString(outer[:])
 }
 

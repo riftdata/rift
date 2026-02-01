@@ -270,7 +270,7 @@ func WriteMessage(w io.Writer, msgType byte, payload []byte) error {
 
 	header := make([]byte, 5)
 	header[0] = msgType
-	binary.BigEndian.PutUint32(header[1:], uint32(length)) //nolint:gosec // length is validated above
+	binary.BigEndian.PutUint32(header[1:], uint32(length)) // #nosec G115 -- length is validated above
 
 	if _, err := w.Write(header); err != nil {
 		return err
@@ -371,7 +371,7 @@ func ParseStartupMessage(payload []byte) (version int32, params map[string]strin
 		return 0, nil, ErrInvalidMessage
 	}
 
-	version = int32(binary.BigEndian.Uint32(payload[:4])) //nolint:gosec // protocol version fits in int32
+	version = int32(binary.BigEndian.Uint32(payload[:4])) // #nosec G115 -- protocol version fits in int32
 	params = make(map[string]string)
 
 	// Parse key-value pairs (null-terminated strings)
@@ -396,17 +396,17 @@ func ParseStartupMessage(payload []byte) (version int32, params map[string]strin
 // Float32 conversion helpers (bitwise reinterpretation, not lossy conversion)
 
 func Float32ToInt32Bits(f float32) int32 {
-	return int32(math.Float32bits(f)) //nolint:gosec // bitwise reinterpretation
+	return int32(math.Float32bits(f)) // #nosec G115 -- bitwise reinterpretation, not arithmetic conversion
 }
 
 func Int32BitsToFloat32(i int32) float32 {
-	return math.Float32frombits(uint32(i)) //nolint:gosec // bitwise reinterpretation
+	return math.Float32frombits(uint32(i)) // #nosec G115 -- bitwise reinterpretation, not arithmetic conversion
 }
 
 func Float64ToInt64Bits(f float64) int64 {
-	return int64(math.Float64bits(f)) //nolint:gosec // bitwise reinterpretation
+	return int64(math.Float64bits(f)) // #nosec G115 -- bitwise reinterpretation, not arithmetic conversion
 }
 
 func Int64BitsToFloat64(i int64) float64 {
-	return math.Float64frombits(uint64(i)) //nolint:gosec // bitwise reinterpretation
+	return math.Float64frombits(uint64(i)) // #nosec G115 -- bitwise reinterpretation, not arithmetic conversion
 }
