@@ -71,14 +71,11 @@ homebrew_casks:
       owner: rift
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    directory: Formula
+    directory: Casks
     homepage: "https://riftdata.io"
     description: "Instant, copy-on-write database branches for Postgres"
-    license: "Apache-2.0"
-    install: |
-      bin.install "rift"
-    test: |
-      system "#{bin}/rift", "--version"
+    binaries:
+      - rift
 
 dockers:
   - image_templates:
