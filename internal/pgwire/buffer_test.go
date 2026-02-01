@@ -9,7 +9,7 @@ func TestBufferWriteRead(t *testing.T) {
 	buf := NewBuffer(64)
 
 	// Write values
-	buf.WriteByte(42)
+	_ = buf.WriteByte(42)
 	buf.WriteInt16(1234)
 	buf.WriteInt32(567890)
 	buf.WriteString("hello")
@@ -51,7 +51,7 @@ func TestParseStartupMessage(t *testing.T) {
 	buf.WriteString("testuser")
 	buf.WriteString("database")
 	buf.WriteString("testdb")
-	buf.WriteByte(0)
+	_ = buf.WriteByte(0)
 
 	version, params, err := ParseStartupMessage(buf.Bytes())
 	if err != nil {

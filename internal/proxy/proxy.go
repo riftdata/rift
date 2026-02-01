@@ -260,7 +260,7 @@ func buildStartupMessage(database, clientUser, upstreamUser string) []byte {
 	buf.WriteString("rift")
 
 	// Terminator
-	buf.WriteByte(0)
+	_ = buf.WriteByte(0)
 
 	// Fill in length
 	data := buf.Bytes()

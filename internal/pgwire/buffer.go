@@ -63,9 +63,10 @@ func (b *Buffer) SetPosition(pos int) {
 
 // --- Writing ---
 
-// WriteByte appends a single byte
-func (b *Buffer) WriteByte(v byte) { //nolint:govet // intentional deviation from io.ByteWriter for buffer API
+// WriteByte appends a single byte (implements io.ByteWriter)
+func (b *Buffer) WriteByte(v byte) error {
 	b.buf = append(b.buf, v)
+	return nil
 }
 
 // WriteInt16 appends a 16-bit integer (big-endian)
@@ -294,16 +295,16 @@ func WriteRaw(w io.Writer, data []byte) error {
 func BuildErrorResponse(severity, code, message string) []byte {
 	buf := NewBuffer(256)
 
-	buf.WriteByte(FieldSeverity)
+	_ = buf.WriteByte(FieldSeverity)
 	buf.WriteString(severity)
 
-	buf.WriteByte(FieldCode)
+	_ = buf.WriteByte(FieldCode)
 	buf.WriteString(code)
 
-	buf.WriteByte(FieldMessage)
+	_ = buf.WriteByte(FieldMessage)
 	buf.WriteString(message)
 
-	buf.WriteByte(0) // terminator
+	_ = buf.WriteByte(0) // terminator
 
 	return buf.Bytes()
 }
