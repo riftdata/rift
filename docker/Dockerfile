@@ -1,33 +1,3 @@
-# Build stage
-FROM golang:1.25.6-alpine AS builder
-
-# Install build dependencies
-RUN apk add --no-cache git ca-certificates tzdata
-
-# Set working directory
-WORKDIR /app
-
-# Copy go mod files
-COPY go.mod go.sum ./
-
-# Download dependencies
-RUN go mod download
-
-# Copy source code
-COPY . .
-
-# Build arguments
-ARG VERSION=dev
-ARG COMMIT=unknown
-ARG BUILD_TIME=unknown
-
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildTime=${BUILD_TIME}" \
-    -o rift \
-    ./cmd/rift
-
-# Final stage
 FROM alpine:3.23.3
 
 # Install runtime dependencies
@@ -40,11 +10,8 @@ RUN addgroup -g 1000 rift && \
 # Create data directory
 RUN mkdir -p /data && chown rift:rift /data
 
-# Copy binary from builder
-COPY --from=builder /app/rift /usr/local/bin/rift
-
-# Copy migrations if any
-# COPY --from=builder /app/migrations /migrations
+# Copy pre-built binary
+COPY rift /usr/local/bin/rift
 
 # Switch to non-root user
 USER rift
