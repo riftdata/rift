@@ -77,18 +77,12 @@ homebrew_casks:
     binaries:
       - rift
 
-dockers_v2:
-  - images:
-      - "riftdata/rift"
-      - "ghcr.io/riftdata/rift"
-    tags:
-      - "v{{ .Version }}"
-      - latest
-    dockerfile: docker/Dockerfile.goreleaser
-    build_args:
-      VERSION: "{{ .Version }}"
-      COMMIT: "{{ .ShortCommit }}"
-      BUILD_TIME: "{{ .Date }}"
+# Docker images are built and pushed by .github/workflows/docker.yml
+# which uses docker/build-push-action with SBOM and provenance attestations.
+# GoReleaser's dockers_v2 does not support BuildKit attestations, so Docker
+# publishing is intentionally handled outside of GoReleaser to ensure all
+# images on Docker Hub and GHCR have a software bill of materials and
+# provenance attached.
 
 announce:
   skip: true
