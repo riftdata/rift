@@ -58,7 +58,7 @@ services:
     profiles:
       - tools
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@rift.dev
+      PGADMIN_DEFAULT_EMAIL: admin@riftdata.io
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:

@@ -70,7 +70,7 @@ connects normally—it just sees an isolated database.
 ## Quick Start
 ```bash
 # Install (coming soon...)
-curl -fsSL https://rift.dev/install.sh | sh
+curl -fsSL https://riftdata.io/install.sh | sh
 
 # Point at your existing Postgres
 rift init --upstream postgres://localhost:5432/myapp

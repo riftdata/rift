@@ -78,7 +78,7 @@ Get started:
   rift serve
   rift create my-feature-branch
 
-Documentation: https://rift.dev/docs`,
+Documentation: https://riftdata.io/docs`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {

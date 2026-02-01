@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # rift installer script
-# Usage: curl -fsSL https://rift.dev/install.sh | sh
+# Usage: curl -fsSL https://riftdata.io/install.sh | sh
 
 # Colors
 RED='\033[0;31m'
@@ -130,7 +130,7 @@ install() {
         echo "  rift serve"
         echo "  rift create my-feature-branch"
         echo ""
-        echo "Documentation: https://rift.dev/docs"
+        echo "Documentation: https://riftdata.io/docs"
     else
         log_warn "rift installed but not in PATH"
         log_warn "Add $INSTALL_DIR to your PATH or run: $INSTALL_DIR/rift"

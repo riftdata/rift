@@ -51,9 +51,9 @@ runs:
       run: |
         VERSION="${{ inputs.version }}"
         if [ "$VERSION" = "latest" ]; then
-          curl -fsSL https://rift.dev/install.sh | sh
+          curl -fsSL https://riftdata.io/install.sh | sh
         else
-          curl -fsSL https://rift.dev/install.sh | VERSION="$VERSION" sh
+          curl -fsSL https://riftdata.io/install.sh | VERSION="$VERSION" sh
         fi
 
     - name: Initialize rift
