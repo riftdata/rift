@@ -38,14 +38,15 @@ build: ## Build the binary
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY) ./cmd/rift
 
-build-all: ## Build for all platforms
+build-all: ## Build for all platforms (requires zig for cross-compilation)
 	@echo "$(GREEN)Building for all platforms...$(NC)"
+	@echo "$(YELLOW)Note: Cross-compilation requires zig. Install: https://ziglang.org/download/$(NC)"
 	@mkdir -p $(DIST_DIR)
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-linux-amd64 ./cmd/rift
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-linux-arm64 ./cmd/rift
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-darwin-amd64 ./cmd/rift
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-darwin-arm64 ./cmd/rift
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-windows-amd64.exe ./cmd/rift
+	CGO_ENABLED=1 CC="zig cc -target x86_64-linux-gnu"   GOOS=linux   GOARCH=amd64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-linux-amd64 ./cmd/rift
+	CGO_ENABLED=1 CC="zig cc -target aarch64-linux-gnu"  GOOS=linux   GOARCH=arm64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-linux-arm64 ./cmd/rift
+	CGO_ENABLED=1 CC="zig cc -target x86_64-macos"       GOOS=darwin  GOARCH=amd64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-darwin-amd64 ./cmd/rift
+	CGO_ENABLED=1 CC="zig cc -target aarch64-macos"      GOOS=darwin  GOARCH=arm64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-darwin-arm64 ./cmd/rift
+	CGO_ENABLED=1 CC="zig cc -target x86_64-windows-gnu" GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-windows-amd64.exe ./cmd/rift
 
 run: build ## Run the proxy server
 	./$(BIN_DIR)/$(BINARY) serve

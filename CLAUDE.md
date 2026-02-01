@@ -110,7 +110,7 @@ logger.Info("branch created", "name", branch.Name, "parent", branch.Parent)
 
 - Standard Go conventions; enforced by `golangci-lint` with gocritic, gosec, gocyclo (max complexity 15)
 - `gofmt -s` for formatting
-- No `CGO_ENABLED` — pure Go for cross-compilation
+- `CGO_ENABLED=1` required (pg_query_go); cross-compilation uses zig as C compiler
 - Conventional Commits: `feat(scope):`, `fix(scope):`, `docs:`, `test:`, `refactor:`, `chore:`
 - Branch naming: `feature/`, `fix/`, `docs/`, `refactor/`, `test/`
 

@@ -62,6 +62,8 @@ jobs:
 
       - name: Run go vet
         run: go vet ./...
+        env:
+          CGO_ENABLED: 1
 
       - name: Run go fmt check
         run: |
@@ -73,10 +75,13 @@ jobs:
 
       - name: Run unit tests
         run: go test -v -race -short -coverprofile=coverage.out -covermode=atomic ./...
+        env:
+          CGO_ENABLED: 1
 
       - name: Run integration tests
         run: go test -v -race -tags=integration ./tests/integration/...
         env:
+          CGO_ENABLED: 1
           rift_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/rift_test?sslmode=disable
 
       - name: Upload coverage
@@ -93,11 +98,80 @@ jobs:
 
     strategy:
       matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
-        exclude:
-          - goos: windows
+        include:
+          - goos: linux
+            goarch: amd64
+            cc: zigcc-linux-amd64
+          - goos: linux
             goarch: arm64
+            cc: zigcc-linux-arm64
+          - goos: darwin
+            goarch: amd64
+            cc: zigcc-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            cc: zigcc-darwin-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.14.1
+
+      - name: Create zig CC wrapper scripts
+        run: |
+          create_wrapper() {
+            local name="$1" target="$2" tool="$3"
+            cat > "/usr/local/bin/${name}" <<WRAPPER
+          #!/bin/sh
+          exec zig ${tool} -target ${target} "\$@"
+          WRAPPER
+            chmod +x "/usr/local/bin/${name}"
+          }
+
+          create_wrapper zigcc-linux-amd64   x86_64-linux-gnu   cc
+          create_wrapper zigcpp-linux-amd64  x86_64-linux-gnu   c++
+          create_wrapper zigcc-linux-arm64   aarch64-linux-gnu  cc
+          create_wrapper zigcpp-linux-arm64  aarch64-linux-gnu  c++
+          create_wrapper zigcc-darwin-amd64  x86_64-macos       cc
+          create_wrapper zigcpp-darwin-amd64 x86_64-macos       c++
+          create_wrapper zigcc-darwin-arm64  aarch64-macos      cc
+          create_wrapper zigcpp-darwin-arm64 aarch64-macos      c++
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+          CC: ${{ matrix.cc }}
+        run: |
+          VERSION=${GITHUB_REF_NAME:-dev}
+          COMMIT=${GITHUB_SHA::8}
+          BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+          go build \
+            -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildTime=${BUILD_TIME}" \
+            -o "rift-${{ matrix.goos }}-${{ matrix.goarch }}" \
+            ./cmd/rift
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rift-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: rift-*
+          retention-days: 7
+
+  build-windows:
+    name: Build (Windows)
+    runs-on: windows-latest
+    needs: [ lint, test ]
 
     steps:
       - uses: actions/checkout@v4
@@ -108,30 +182,24 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Build
+        shell: bash
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
+          CGO_ENABLED: "1"
         run: |
           VERSION=${GITHUB_REF_NAME:-dev}
           COMMIT=${GITHUB_SHA::8}
           BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-          
-          EXT=""
-          if [ "$GOOS" = "windows" ]; then
-            EXT=".exe"
-          fi
-          
+
           go build \
             -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildTime=${BUILD_TIME}" \
-            -o rift-${{ matrix.goos }}-${{ matrix.goarch }}${EXT} \
+            -o rift-windows-amd64.exe \
             ./cmd/rift
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rift-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: rift-*
+          name: rift-windows-amd64
+          path: rift-*.exe
           retention-days: 7
 
   security:
@@ -146,6 +214,8 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Run Gosec
+        env:
+          CGO_ENABLED: 1
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           gosec ./...
