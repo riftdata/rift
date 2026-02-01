@@ -84,7 +84,7 @@ dockers_v2:
     tags:
       - "v{{ .Version }}"
       - latest
-    dockerfile: docker/Dockerfile
+    dockerfile: docker/Dockerfile.goreleaser
     build_args:
       VERSION: "{{ .Version }}"
       COMMIT: "{{ .ShortCommit }}"
