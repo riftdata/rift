@@ -15,6 +15,7 @@ rift
 
 # Build
 dist/
+*.tar.gz
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
@@ -30,6 +31,10 @@ go.work.sum
 .idea
 *.iml
 .vscode/
+
+# npm platform binary artifacts
+npm/*/bin/
+node_modules/
 
 # OS
 .DS_Store

@@ -1,0 +1,24 @@
+{
+  "name": "@rift-data/cli-darwin-x64",
+  "version": "0.0.1",
+  "description": "rift CLI binary for macOS x64",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/riftdata/rift",
+  "homepage": "https://riftdata.io",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "bin": {
+    "rift": "bin/rift"
+  },
+  "files": [
+    "bin/rift"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "preferUnplugged": true
+}

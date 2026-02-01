@@ -1,0 +1,39 @@
+{
+  "name": "@rift-data/cli",
+  "version": "0.0.1",
+  "description": "RiftDB per-branch git separation of postgres environments",
+  "bin": {
+    "rift": "bin/rift.js"
+  },
+  "files": [
+    "bin/rift.js"
+  ],
+  "keywords": [
+    "git",
+    "github",
+    "branch",
+    "database",
+    "db",
+    "postgres",
+    "pg"
+  ],
+  "private": false,
+  "license": "Apache-2.0",
+  "repository": "https://github.com/riftdata/rift",
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  },
+  "optionalDependencies": {
+    "@rift-data/cli-darwin-arm64": "0.0.1",
+    "@rift-data/cli-darwin-x64": "0.0.1",
+    "@rift-data/cli-linux-arm64": "0.0.1",
+    "@rift-data/cli-linux-x64": "0.0.1",
+    "@rift-data/cli-win32-x64": "0.0.1"
+  },
+  "contributors": [
+    "Michael Dadi <michaeldadi@users.noreply.github.com>"
+  ],
+  "homepage": "https://riftdata.io",
+  "readme": "README.md"
+}

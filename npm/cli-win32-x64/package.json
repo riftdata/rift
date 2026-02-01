@@ -1,0 +1,24 @@
+{
+  "name": "@rift-data/cli-win32-x64",
+  "version": "0.0.1",
+  "description": "rift CLI binary for Windows x64",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/riftdata/rift",
+  "homepage": "https://riftdata.io",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "bin": {
+    "rift": "bin/rift.exe"
+  },
+  "files": [
+    "bin/rift.exe"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "preferUnplugged": true
+}

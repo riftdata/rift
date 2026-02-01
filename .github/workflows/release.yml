@@ -87,12 +87,115 @@ jobs:
             COMMIT=${{ github.sha }}
             BUILD_TIME=${{ github.event.head_commit.timestamp }}
 
+  npm-publish:
+    name: Publish npm Packages
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download release archives
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir -p /tmp/release-assets
+          gh release download "v${VERSION}" \
+            --repo "$REPO" \
+            --pattern "rift_${VERSION}_*.tar.gz" \
+            --pattern "rift_${VERSION}_*.zip" \
+            --dir /tmp/release-assets
+
+      - name: Prepare platform packages
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          prepare_package() {
+            local goreleaser_key="$1" npm_suffix="$2" ext="$3"
+            local pkg_dir="npm/cli-${npm_suffix}"
+            local archive="rift_${VERSION}_${goreleaser_key}.${ext}"
+
+            echo "Preparing @rift-data/cli-${npm_suffix} from ${archive}"
+            mkdir -p "${pkg_dir}/bin"
+
+            if [[ "$ext" == "zip" ]]; then
+              unzip -o "/tmp/release-assets/${archive}" "rift.exe" -d "${pkg_dir}/bin/"
+            else
+              tar -xzf "/tmp/release-assets/${archive}" -C "${pkg_dir}/bin/" rift
+            fi
+
+            cd "${pkg_dir}"
+            npm version "${VERSION}" --no-git-tag-version --allow-same-version
+            cd -
+          }
+
+          prepare_package darwin_amd64 darwin-x64 tar.gz
+          prepare_package darwin_arm64 darwin-arm64 tar.gz
+          prepare_package linux_amd64 linux-x64 tar.gz
+          prepare_package linux_arm64 linux-arm64 tar.gz
+          prepare_package windows_amd64 win32-x64 zip
+
+      - name: Stamp main package version
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = process.env.VERSION;
+            for (const dep of Object.keys(pkg.optionalDependencies || {})) {
+              pkg.optionalDependencies[dep] = process.env.VERSION;
+            }
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+      - name: Publish platform packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for dir in npm/cli-*/; do
+            echo "Publishing $(basename "$dir")..."
+            cd "$dir"
+            npm publish --access public
+            cd -
+          done
+
+      - name: Wait for registry propagation
+        run: sleep 30
+
+      - name: Publish main package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          TAG="latest"
+          if [[ "$TAG_NAME" == *"-"* ]]; then
+            TAG="next"
+          fi
+          npm publish --access public --tag "$TAG"
+
   notify:
     name: Notify
     runs-on: ubuntu-latest
-    needs: [release, docker]
-    
+    needs: [ release, docker, npm-publish ]
+
     steps:
       - name: Post release announcement
+        env:
+          TAG_NAME: ${{ github.ref_name }}
         run: |
-          echo "Release ${{ github.ref_name }} published!"
+          echo "Release ${TAG_NAME} published!"
