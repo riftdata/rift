@@ -10,7 +10,7 @@ LDFLAGS := -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main
 # Go settings
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
-CGO_ENABLED ?= 0
+CGO_ENABLED ?= 1
 
 # Directories
 BIN_DIR := bin
@@ -100,6 +100,14 @@ vet: ## Run go vet
 	go vet ./...
 
 check: fmt lint vet test ## Run all checks
+
+##@ Git Hooks
+
+hooks: ## Install git hooks (pre-commit + commit-msg)
+	@echo "$(GREEN)Installing git hooks...$(NC)"
+	@ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+	@ln -sf ../../scripts/commit-msg .git/hooks/commit-msg
+	@echo "$(GREEN)Git hooks installed$(NC)"
 
 ##@ Docker
 

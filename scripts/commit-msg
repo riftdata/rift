@@ -1,0 +1,40 @@
+#!/bin/sh
+
+# Conventional Commits validation hook
+# Format: <type>[(scope)]: <description>
+#
+# Allowed types: feat, fix, docs, test, refactor, chore, ci, style, perf, build, revert
+# Scope is optional. Description must be lowercase and non-empty.
+
+commit_msg_file="$1"
+commit_msg=$(head -1 "$commit_msg_file")
+
+# Allow merge commits
+if echo "$commit_msg" | grep -qE '^Merge '; then
+  exit 0
+fi
+
+# Allow revert commits
+if echo "$commit_msg" | grep -qE '^Revert "'; then
+  exit 0
+fi
+
+# Conventional commit pattern
+pattern='^(feat|fix|docs|test|refactor|chore|ci|style|perf|build|revert)(\([a-z0-9_-]+\))?!?:[[:space:]].+'
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+  echo "ERROR: Commit message does not follow Conventional Commits format."
+  echo ""
+  echo "  Format: <type>[(scope)]: <description>"
+  echo ""
+  echo "  Types: feat, fix, docs, test, refactor, chore, ci, style, perf, build, revert"
+  echo ""
+  echo "  Examples:"
+  echo "    feat(proxy): add connection pooling"
+  echo "    fix: resolve null pointer in branch deletion"
+  echo "    docs: update README with install instructions"
+  echo "    test(cow): add overlay merge tests"
+  echo ""
+  echo "  Your message: $commit_msg"
+  exit 1
+fi

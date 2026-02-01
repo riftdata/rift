@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.25.6-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25.6 AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
@@ -11,7 +11,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+RUN CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildTime=${BUILD_TIME}" \
     -o /out/rift ./cmd/rift
 

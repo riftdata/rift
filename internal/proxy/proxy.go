@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/riftdata/rift/internal/pgwire"
+	"github.com/riftdata/rift/internal/router"
 )
 
 var (
@@ -59,6 +60,9 @@ type Proxy struct {
 	// Hooks for branch routing (to be set by branch manager)
 	OnConnect    func(database string) (upstreamDB string, err error)
 	Authenticate func(user, database, password string) error
+
+	// Router for non-main branch connections (nil = passthrough only)
+	Router *router.Router
 }
 
 // clientSession holds state for a single client connection
@@ -192,7 +196,22 @@ func (p *Proxy) handleConnection(conn net.Conn) {
 		}
 	}
 
-	// Connect to upstream
+	// If Router is set and this is a non-main branch, use the CoW router
+	if p.Router != nil && router.IsBranchRouted(database) {
+		session := &clientSession{
+			client: client,
+			branch: database,
+		}
+		p.connections.Store(client.ID(), session)
+
+		if err := p.Router.HandleSession(p.ctx, client, database); err != nil {
+			// Connection closed or error — normal termination
+			_ = err
+		}
+		return
+	}
+
+	// Main branch or no router: raw TCP passthrough
 	upstream, err := p.connectUpstream(upstreamDB, client.User())
 	if err != nil {
 		_ = client.SendError("FATAL", pgwire.ErrCodeConnectionFailure, fmt.Sprintf("upstream connection failed: %v", err))
