@@ -17,8 +17,8 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
 
 FROM alpine:3.23.3
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata postgresql-client curl
+# Install runtime dependencies (curl removed — healthcheck uses busybox wget)
+RUN apk add --no-cache ca-certificates tzdata postgresql-client
 
 # Create non-root user
 RUN addgroup -g 1000 rift && \
@@ -48,9 +48,9 @@ ENV rift_LOG_FORMAT=json
 # 8080 - HTTP API / Dashboard
 EXPOSE 6432 8080
 
-# Health check
+# Health check using busybox wget (no curl dependency needed)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -fsS http://localhost:8080/health || exit 1
+    CMD wget -qO- http://localhost:8080/health || exit 1
 
 # Default command
 ENTRYPOINT ["rift"]
