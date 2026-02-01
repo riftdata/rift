@@ -38,7 +38,7 @@ archives:
       {{- .Arch }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [ zip ]
     files:
       - README.md
       - LICENSE
@@ -59,7 +59,7 @@ changelog:
 
 release:
   github:
-    owner: rift
+    owner: riftdata
     name: rift
   draft: false
   prerelease: auto
@@ -68,7 +68,7 @@ release:
 homebrew_casks:
   - name: rift
     repository:
-      owner: rift
+      owner: riftdata
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Casks
@@ -77,50 +77,18 @@ homebrew_casks:
     binaries:
       - rift
 
-dockers:
-  - image_templates:
-      - "riftdata/rift:{{ .Version }}-amd64"
-      - "ghcr.io/riftdata/rift:{{ .Version }}-amd64"
-    use: buildx
+dockers_v2:
+  - images:
+      - "riftdata/rift"
+      - "ghcr.io/riftdata/rift"
+    tags:
+      - "v{{ .Version }}"
+      - latest
     dockerfile: docker/Dockerfile
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--build-arg=VERSION={{.Version}}"
-      - "--build-arg=COMMIT={{.ShortCommit}}"
-      - "--build-arg=BUILD_TIME={{.Date}}"
-
-  - image_templates:
-      - "riftdata/rift:{{ .Version }}-arm64"
-      - "ghcr.io/riftdata/rift:{{ .Version }}-arm64"
-    use: buildx
-    dockerfile: docker/Dockerfile
-    goarch: arm64
-    build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--build-arg=VERSION={{.Version}}"
-      - "--build-arg=COMMIT={{.ShortCommit}}"
-      - "--build-arg=BUILD_TIME={{.Date}}"
-
-docker_manifests:
-  - name_template: "riftdata/rift:{{ .Version }}"
-    image_templates:
-      - "riftdata/rift:{{ .Version }}-amd64"
-      - "riftdata/rift:{{ .Version }}-arm64"
-
-  - name_template: "riftdata/rift:latest"
-    image_templates:
-      - "riftdata/rift:{{ .Version }}-amd64"
-      - "riftdata/rift:{{ .Version }}-arm64"
-
-  - name_template: "ghcr.io/riftdata/rift:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/riftdata/rift:{{ .Version }}-amd64"
-      - "ghcr.io/riftdata/rift:{{ .Version }}-arm64"
-
-  - name_template: "ghcr.io/riftdata/rift:latest"
-    image_templates:
-      - "ghcr.io/riftdata/rift:{{ .Version }}-amd64"
-      - "ghcr.io/riftdata/rift:{{ .Version }}-arm64"
+    build_args:
+      VERSION: "{{ .Version }}"
+      COMMIT: "{{ .ShortCommit }}"
+      BUILD_TIME: "{{ .Date }}"
 
 announce:
   skip: true

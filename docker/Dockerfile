@@ -11,7 +11,8 @@ RUN addgroup -g 1000 rift && \
 RUN mkdir -p /data && chown rift:rift /data
 
 # Copy pre-built binary
-COPY rift /usr/local/bin/rift
+ARG TARGETPLATFORM
+COPY ${TARGETPLATFORM}/rift /usr/local/bin/rift
 
 # Switch to non-root user
 USER rift
