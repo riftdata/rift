@@ -140,10 +140,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Run Gosec
-        uses: securego/gosec@master
+      - name: Set up Go
+        uses: actions/setup-go@v6
         with:
-          args: ./...
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run Gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec ./...
 
       - name: Run Trivy
         uses: aquasecurity/trivy-action@master
