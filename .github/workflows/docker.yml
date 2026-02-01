@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  security-events: read
 
 env:
   REGISTRY: ghcr.io
