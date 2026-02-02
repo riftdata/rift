@@ -17,6 +17,10 @@ type MergeSQL struct {
 // GenerateMergeSQL produces SQL to apply a branch's changes to the parent.
 // The generated SQL handles inserts, updates, and deletes in the correct order.
 func GenerateMergeSQL(ctx context.Context, pool *pgxpool.Pool, branchSchema, sourceSchema, tableName string, pkCols []string) (*MergeSQL, error) {
+	if len(pkCols) == 0 {
+		return nil, fmt.Errorf("merge table %q: empty primary key columns", tableName)
+	}
+
 	ovrTable := pgQuoteIdent(branchSchema) + "." + pgQuoteIdent(tableName)
 	srcTable := pgQuoteIdent(sourceSchema) + "." + pgQuoteIdent(tableName)
 

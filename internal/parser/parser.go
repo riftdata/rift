@@ -237,15 +237,15 @@ func classifyDropStmt(pq *ParsedQuery, ds *pg_query.DropStmt) {
 	// Extract table names from the objects list
 	for _, obj := range ds.Objects {
 		if list, ok := obj.Node.(*pg_query.Node_List); ok {
-			name := extractNameFromList(list.List)
-			if name != "" {
-				pq.Tables = append(pq.Tables, TableRef{Name: name})
+			ref, ok := extractTableRefFromList(list.List)
+			if ok {
+				pq.Tables = append(pq.Tables, ref)
 			}
 		}
 	}
 }
 
-func extractNameFromList(list *pg_query.List) string {
+func extractTableRefFromList(list *pg_query.List) (TableRef, bool) {
 	var parts []string
 	for _, item := range list.Items {
 		if s, ok := item.Node.(*pg_query.Node_String_); ok {
@@ -253,9 +253,13 @@ func extractNameFromList(list *pg_query.List) string {
 		}
 	}
 	if len(parts) == 0 {
-		return ""
+		return TableRef{}, false
 	}
-	return parts[len(parts)-1]
+	ref := TableRef{Name: parts[len(parts)-1]}
+	if len(parts) >= 2 {
+		ref.Schema = parts[len(parts)-2]
+	}
+	return ref, true
 }
 
 func extractTableFromNode(pq *ParsedQuery, node *pg_query.Node) {

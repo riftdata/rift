@@ -121,40 +121,18 @@ func (s *Session) handleBind(_ context.Context, payload []byte) error {
 		return nil
 	}
 
-	// Read parameter format codes
-	numFormats, err := buf.ReadInt16()
+	if err := validateFormatCodes(buf, "parameter"); err != nil {
+		return err
+	}
+
+	paramVals, err := readParamValues(buf)
 	if err != nil {
-		return fmt.Errorf("read num formats: %w", err)
-	}
-	for i := int16(0); i < numFormats; i++ {
-		_, _ = buf.ReadInt16() // skip format codes — we use text
+		return err
 	}
 
-	// Read parameter values
-	numParams, err := buf.ReadInt16()
-	if err != nil {
-		return fmt.Errorf("read num params: %w", err)
+	if err := validateFormatCodes(buf, "result"); err != nil {
+		return err
 	}
-
-	paramVals := make([][]byte, numParams)
-	for i := int16(0); i < numParams; i++ {
-		length, err := buf.ReadInt32()
-		if err != nil {
-			return fmt.Errorf("read param length: %w", err)
-		}
-		if length == -1 {
-			paramVals[i] = nil // NULL
-		} else {
-			val, err := buf.ReadBytes(int(length))
-			if err != nil {
-				return fmt.Errorf("read param value: %w", err)
-			}
-			paramVals[i] = val
-		}
-	}
-
-	// Skip result format codes — we always return text
-	// numResultFormats, _ := buf.ReadInt16()
 
 	p := &portal{
 		name:      portalName,
@@ -165,6 +143,49 @@ func (s *Session) handleBind(_ context.Context, payload []byte) error {
 
 	// Send BindComplete
 	return s.client.WriteMessage(pgwire.MsgBindComplete, nil)
+}
+
+// validateFormatCodes reads format codes from buf and rejects binary (non-zero) formats.
+func validateFormatCodes(buf *pgwire.Buffer, kind string) error {
+	count, err := buf.ReadInt16()
+	if err != nil {
+		return fmt.Errorf("read num %s formats: %w", kind, err)
+	}
+	for i := int16(0); i < count; i++ {
+		fc, err := buf.ReadInt16()
+		if err != nil {
+			return fmt.Errorf("read %s format code: %w", kind, err)
+		}
+		if fc != 0 {
+			return fmt.Errorf("unsupported binary %s format (code %d) at index %d", kind, fc, i)
+		}
+	}
+	return nil
+}
+
+// readParamValues reads bind parameter values from buf.
+func readParamValues(buf *pgwire.Buffer) ([][]byte, error) {
+	numParams, err := buf.ReadInt16()
+	if err != nil {
+		return nil, fmt.Errorf("read num params: %w", err)
+	}
+	vals := make([][]byte, numParams)
+	for i := int16(0); i < numParams; i++ {
+		length, err := buf.ReadInt32()
+		if err != nil {
+			return nil, fmt.Errorf("read param length: %w", err)
+		}
+		if length == -1 {
+			vals[i] = nil // NULL
+		} else {
+			val, err := buf.ReadBytes(int(length))
+			if err != nil {
+				return nil, fmt.Errorf("read param value: %w", err)
+			}
+			vals[i] = val
+		}
+	}
+	return vals, nil
 }
 
 // handleDescribe processes a Describe ('D') message.
@@ -275,16 +296,35 @@ func (s *Session) handleExecute(ctx context.Context, payload []byte) error {
 }
 
 // executeExtStatements runs the statements for an extended protocol Execute.
+// Each statement is individually parsed/processed so that executeExtOne sees
+// the correct query type rather than the type of the full (possibly multi-statement) SQL.
 func (s *Session) executeExtStatements(ctx context.Context, processed *cow.ProcessedQuery, sql string, args []interface{}) error {
 	statements := splitStatements(sql)
+
+	// Fast path: single statement uses the already-computed ProcessedQuery.
+	if len(statements) <= 1 {
+		stmt := strings.TrimSpace(sql)
+		if stmt == "" {
+			return nil
+		}
+		return s.executeExtOne(ctx, processed, stmt, true, args)
+	}
+
 	for i, stmt := range statements {
 		stmt = strings.TrimSpace(stmt)
 		if stmt == "" {
 			continue
 		}
 
+		// Re-process each individual statement to get the correct query type.
+		stmtProcessed, err := s.engine.ProcessQuery(ctx, s.branchName, stmt)
+		if err != nil {
+			s.extErr = fmt.Errorf("process split statement: %w", err)
+			return nil
+		}
+
 		isLast := i == len(statements)-1
-		if err := s.executeExtOne(ctx, processed, stmt, isLast, args); err != nil {
+		if err := s.executeExtOne(ctx, stmtProcessed, stmt, isLast, args); err != nil {
 			return err
 		}
 		args = nil // only the first statement gets params

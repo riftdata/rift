@@ -32,9 +32,9 @@ func EnsureOverlayTable(ctx context.Context, pool *pgxpool.Pool, branchSchema, s
 		return fmt.Errorf("table %s.%s has no primary key; overlay requires a PK", sourceSchema, tableName)
 	}
 
-	// Create overlay table using LIKE to mirror structure
+	// Create an overlay table using LIKE to mirror the structure
 	createSQL := fmt.Sprintf(
-		`CREATE TABLE %s (LIKE %s INCLUDING DEFAULTS INCLUDING CONSTRAINTS)`,
+		`CREATE TABLE IF NOT EXISTS %s (LIKE %s INCLUDING DEFAULTS INCLUDING CONSTRAINTS)`,
 		overlayTable, sourceTable)
 
 	if _, err := pool.Exec(ctx, createSQL); err != nil {
@@ -43,24 +43,33 @@ func EnsureOverlayTable(ctx context.Context, pool *pgxpool.Pool, branchSchema, s
 
 	// Add tombstone column
 	addTombstone := fmt.Sprintf(
-		`ALTER TABLE %s ADD COLUMN _rift_tombstone BOOLEAN NOT NULL DEFAULT false`,
+		`ALTER TABLE %s ADD COLUMN IF NOT EXISTS _rift_tombstone BOOLEAN NOT NULL DEFAULT false`,
 		overlayTable)
 
 	if _, err := pool.Exec(ctx, addTombstone); err != nil {
 		return fmt.Errorf("add tombstone column: %w", err)
 	}
 
-	// Add primary key (LIKE doesn't always copy PK constraints depending on PG version)
-	pkList := strings.Join(quoteIdents(pkCols), ", ")
-	addPK := fmt.Sprintf(
-		`DO $$ BEGIN
-			ALTER TABLE %s ADD PRIMARY KEY (%s);
-		EXCEPTION WHEN duplicate_table THEN NULL;
-		END $$`,
-		overlayTable, pkList)
+	// Add a primary key only if one doesn't already exist.
+	// LIKE - may or may not copy PK constraints depending on a PG version.
+	var hasPK bool
+	err = pool.QueryRow(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM pg_catalog.pg_constraint c
+			JOIN pg_catalog.pg_class r ON r.oid = c.conrelid
+			JOIN pg_catalog.pg_namespace n ON n.oid = r.relnamespace
+			WHERE n.nspname = $1 AND r.relname = $2 AND c.contype = 'p'
+		)`, branchSchema, tableName).Scan(&hasPK)
+	if err != nil {
+		return fmt.Errorf("check overlay PK: %w", err)
+	}
 
-	if _, err := pool.Exec(ctx, addPK); err != nil {
-		return fmt.Errorf("add overlay PK: %w", err)
+	if !hasPK {
+		pkList := strings.Join(quoteIdents(pkCols), ", ")
+		addPK := fmt.Sprintf(`ALTER TABLE %s ADD PRIMARY KEY (%s)`, overlayTable, pkList)
+		if _, err := pool.Exec(ctx, addPK); err != nil {
+			return fmt.Errorf("add overlay PK: %w", err)
+		}
 	}
 
 	return nil

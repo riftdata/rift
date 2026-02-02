@@ -5,6 +5,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -44,8 +45,13 @@ func setupTestDB(t *testing.T) (string, func()) {
 	}
 	conn.Close(ctx)
 
-	// Build URL for the test database
-	testURL := fmt.Sprintf("postgres://postgres:postgres@localhost:5432/%s?sslmode=disable", dbName)
+	// Build URL for the test database, preserving userinfo, host, port, and query params
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		t.Fatalf("parse base URL: %v", err)
+	}
+	parsed.Path = "/" + dbName
+	testURL := parsed.String()
 
 	cleanup := func() {
 		conn, err := pgx.Connect(ctx, baseURL)

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"regexp"
 	"runtime"
 	"strings"
 	"syscall"
@@ -255,7 +256,7 @@ If branch-name is not provided, an interactive prompt will guide you.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runCreate,
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		// No completions for branch name - it's a new name
+		// No completions for the branch name - it's a new name
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	},
 }
@@ -521,7 +522,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("initializing storage: %w", err)
 	}
 
-	// Update main branch with the actual upstream database name
+	// Update the main branch with the actual upstream database name
 	u, _ := url.Parse(upstreamURL)
 	dbName := ""
 	if u != nil {
@@ -892,15 +893,25 @@ func runMerge(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// validBranchName matches only safe characters for use in a connection URL and
+// as an argument to syscall.Exec. This prevents injection of path separators,
+// query strings, or shell metacharacters through user-supplied branch names.
+var validBranchName = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+
 func runConnect(cmd *cobra.Command, args []string) error {
 	branchName := args[0]
+
+	if !validBranchName.MatchString(branchName) {
+		return fmt.Errorf("invalid branch name %q: must contain only letters, digits, dots, hyphens, and underscores", branchName)
+	}
 
 	addr := ":6432"
 	if cfg != nil && cfg.Proxy.ListenAddr != "" {
 		addr = cfg.Proxy.ListenAddr
 	}
 
-	connURL := fmt.Sprintf("postgres://localhost%s/%s", addr, branchName)
+	escapedName := url.PathEscape(branchName)
+	connURL := fmt.Sprintf("postgres://localhost%s/%s", addr, escapedName)
 	out.Info(fmt.Sprintf("Connecting to branch '%s'...", branchName))
 	out.Print(fmt.Sprintf("  psql %s", connURL))
 
@@ -911,7 +922,7 @@ func runConnect(cmd *cobra.Command, args []string) error {
 	}
 
 	// Replace process with psql
-	return syscall.Exec(psqlPath, []string{"psql", connURL}, os.Environ()) // #nosec G204 -- user-controlled branch name is validated
+	return syscall.Exec(psqlPath, []string{"psql", connURL}, os.Environ()) // #nosec G204 -- branch name validated against whitelist regex
 }
 
 func runConfigShow(cmd *cobra.Command, args []string) error {
@@ -930,6 +941,10 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 	value := args[1]
 
 	viper.Set(key, value)
+
+	if err := viper.Unmarshal(cfg); err != nil {
+		return fmt.Errorf("applying config update: %w", err)
+	}
 
 	configPath := viper.ConfigFileUsed()
 	if configPath == "" {

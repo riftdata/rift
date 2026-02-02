@@ -142,7 +142,28 @@ func (e *Engine) CreateBranch(ctx context.Context, name, parent string, ttl *tim
 }
 
 // DeleteBranch deletes a branch and its overlay schema.
+// It verifies the branch exists, is not pinned, and has no children before proceeding.
 func (e *Engine) DeleteBranch(ctx context.Context, name string) error {
+	branch, err := e.store.GetBranch(ctx, name)
+	if err != nil {
+		return fmt.Errorf("get branch: %w", err)
+	}
+
+	if branch.Pinned {
+		return fmt.Errorf("cannot delete pinned branch %q", name)
+	}
+
+	// Check for child branches that depend on this one.
+	branches, err := e.store.ListBranches(ctx)
+	if err != nil {
+		return fmt.Errorf("list branches: %w", err)
+	}
+	for _, b := range branches {
+		if b.Parent == name {
+			return fmt.Errorf("cannot delete branch %q: has child branch %q", name, b.Name)
+		}
+	}
+
 	if err := e.store.DropBranchSchema(ctx, name); err != nil {
 		return fmt.Errorf("drop branch schema: %w", err)
 	}

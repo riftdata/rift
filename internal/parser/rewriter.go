@@ -72,6 +72,9 @@ func rewriteSelect(pq *ParsedQuery, configs map[string]RewriteConfig) (*RewriteR
 		if !ok {
 			continue
 		}
+		if len(cfg.PKColumns) == 0 {
+			return nil, fmt.Errorf("table %q requires a primary key for overlay semantics", tbl.Name)
+		}
 		hasOverlay = true
 
 		mergedName := "_rift_merged_" + tbl.Name
@@ -182,6 +185,9 @@ func rewriteUpdate(pq *ParsedQuery, configs map[string]RewriteConfig) (*RewriteR
 	if !ok {
 		return &RewriteResult{SQL: pq.Original, IsPassthrough: true}, nil
 	}
+	if len(cfg.PKColumns) == 0 {
+		return nil, fmt.Errorf("table %q requires a primary key for overlay semantics", tbl.Name)
+	}
 
 	ovrTable := qualifiedTable(cfg.BranchSchema, tbl.Name)
 	srcTable := qualifiedTable(cfg.SourceSchema, tbl.Name)
@@ -192,13 +198,16 @@ func rewriteUpdate(pq *ParsedQuery, configs map[string]RewriteConfig) (*RewriteR
 		`INSERT INTO %s SELECT src.*, false AS _rift_tombstone FROM %s src WHERE NOT EXISTS (SELECT 1 FROM %s ovr WHERE %s)`,
 		ovrTable, srcTable, ovrTable, pkJoin)
 
-	// Extract WHERE clause from original for the copy step
+	// Extract WHERE clause from original for the copy step.
+	// Strip any table name, schema.table, or alias qualifiers so columns
+	// resolve against the "src" alias used in the copy subquery.
 	whereClause := extractWhereClause(pq.Original)
+	qualifiers := []string{tbl.Name, tbl.Alias, tbl.QualifiedName()}
 	if whereClause != "" {
-		copySQL += " AND (" + requalifyWhereForAlias(whereClause, "src") + ")"
+		copySQL += " AND (" + requalifyWhereForAlias(whereClause, "src", qualifiers...) + ")"
 	}
 
-	// Step 2: Execute UPDATE on overlay
+	// Step 2: Execute UPDATE on overlay (no alias, so strip qualifiers)
 	updateSQL := replaceTableRef(pq.Original, tbl, cfg.BranchSchema+"."+tbl.Name)
 
 	// Combine into a single DO block
@@ -225,6 +234,9 @@ func rewriteDelete(pq *ParsedQuery, configs map[string]RewriteConfig) (*RewriteR
 	if !ok {
 		return &RewriteResult{SQL: pq.Original, IsPassthrough: true}, nil
 	}
+	if len(cfg.PKColumns) == 0 {
+		return nil, fmt.Errorf("table %q requires a primary key for overlay semantics", tbl.Name)
+	}
 
 	ovrTable := qualifiedTable(cfg.BranchSchema, tbl.Name)
 	srcTable := qualifiedTable(cfg.SourceSchema, tbl.Name)
@@ -236,14 +248,16 @@ func rewriteDelete(pq *ParsedQuery, configs map[string]RewriteConfig) (*RewriteR
 		ovrTable, srcTable, ovrTable, pkJoin)
 
 	whereClause := extractWhereClause(pq.Original)
+	qualifiers := []string{tbl.Name, tbl.Alias, tbl.QualifiedName()}
 	if whereClause != "" {
-		copySQL += " AND (" + requalifyWhereForAlias(whereClause, "src") + ")"
+		copySQL += " AND (" + requalifyWhereForAlias(whereClause, "src", qualifiers...) + ")"
 	}
 
-	// Step 2: Set tombstone flag instead of deleting
+	// Step 2: Set tombstone flag instead of deleting.
+	// The UPDATE targets the overlay table directly (no alias), so strip qualifiers.
 	tombstoneSQL := fmt.Sprintf("UPDATE %s SET _rift_tombstone = true", ovrTable)
 	if whereClause != "" {
-		tombstoneSQL += " WHERE " + whereClause
+		tombstoneSQL += " WHERE " + stripTableQualifiers(whereClause, qualifiers...)
 	}
 
 	sql := copySQL + ";\n" + tombstoneSQL
@@ -381,10 +395,41 @@ func extractWhereClause(sql string) string {
 	return strings.TrimRight(strings.TrimSpace(clause), ";")
 }
 
-// requalifyWhereForAlias prefixes unqualified column references with an alias.
-// This is a best-effort transformation for simple WHERE clauses.
-func requalifyWhereForAlias(where, alias string) string {
-	// For now, return as-is. A full implementation would parse and requalify
-	// column references. In practice, the CoW engine handles this more precisely.
-	return where
+// requalifyWhereForAlias strips known table qualifiers from column references
+// in a WHERE clause and re-prefixes them with the given alias. For example,
+// given table "users" (alias "u"), "u.id = 1 AND users.name = 'x'" becomes
+// "src.id = 1 AND src.name = 'x'" when alias is "src".
+//
+// qualifiers collects the table name, schema.table, and alias that should be
+// stripped. This is a best-effort, token-level transformation suitable for
+// simple WHERE clauses.
+func requalifyWhereForAlias(where, alias string, qualifiers ...string) string {
+	result := where
+	for _, q := range qualifiers {
+		if q == "" {
+			continue
+		}
+		// Replace "qualifier." with "alias." — use case-insensitive matching
+		// by trying the original case and lowercase variant.
+		for _, variant := range []string{q, strings.ToLower(q)} {
+			result = strings.ReplaceAll(result, variant+".", alias+".")
+		}
+	}
+	return result
+}
+
+// stripTableQualifiers removes known table qualifiers from column references,
+// leaving bare column names. Used for clauses targeting a table without an alias
+// (e.g., UPDATE overlay SET ... WHERE <clause>).
+func stripTableQualifiers(where string, qualifiers ...string) string {
+	result := where
+	for _, q := range qualifiers {
+		if q == "" {
+			continue
+		}
+		for _, variant := range []string{q, strings.ToLower(q)} {
+			result = strings.ReplaceAll(result, variant+".", "")
+		}
+	}
+	return result
 }

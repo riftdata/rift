@@ -170,10 +170,8 @@ func (s *Session) executeProcessed(ctx context.Context, pq *cow.ProcessedQuery) 
 				}
 				return err
 			}
-			if isLast {
-				if err := s.client.SendCommandComplete(tag); err != nil {
-					return err
-				}
+			if err := s.client.SendCommandComplete(tag); err != nil {
+				return err
 			}
 		}
 	}

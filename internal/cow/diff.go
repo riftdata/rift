@@ -35,9 +35,13 @@ func (d *BranchDiff) TotalChanges() int64 {
 // DiffTable computes the changes between a branch overlay table and its source.
 // It compares rows in the overlay against the source table using PKs:
 // - Rows in overlay with tombstone=true → deletes
-// - Rows in overlay without tombstone that also exist in source → updates
-// - Rows in overlay without tombstone that don't exist in source → inserts
+// - Rows in overlay without a tombstone that also exist in a source → updates
+// - Rows in overlay without tombstone that don't exist in a source → inserts
 func DiffTable(ctx context.Context, pool *pgxpool.Pool, branchSchema, sourceSchema, tableName string, pkCols []string) (*TableDiff, error) {
+	if len(pkCols) == 0 {
+		return nil, fmt.Errorf("diff table %q: empty primary key columns", tableName)
+	}
+
 	ovrTable := pgQuoteIdent(branchSchema) + "." + pgQuoteIdent(tableName)
 	srcTable := pgQuoteIdent(sourceSchema) + "." + pgQuoteIdent(tableName)
 

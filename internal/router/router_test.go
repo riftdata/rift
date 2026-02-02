@@ -226,7 +226,7 @@ func TestFormatValue(t *testing.T) {
 		expect string
 	}{
 		{"string", "hello", "hello"},
-		{"bytes", []byte("world"), "world"},
+		{"bytes", []byte("world"), `\x776f726c64`},
 		{"int16", int16(42), "42"},
 		{"int32", int32(1000), "1000"},
 		{"int64", int64(999999), "999999"},
@@ -240,9 +240,9 @@ func TestFormatValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := formatValue(tt.input)
+			got := formatValue(tt.input, 0)
 			if got != tt.expect {
-				t.Errorf("formatValue(%v) = %q, want %q", tt.input, got, tt.expect)
+				t.Errorf("formatValue(%v, 0) = %q, want %q", tt.input, got, tt.expect)
 			}
 		})
 	}
