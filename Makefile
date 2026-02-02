@@ -10,7 +10,7 @@ LDFLAGS := -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main
 # Go settings
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
-CGO_ENABLED ?= 0
+CGO_ENABLED ?= 1
 
 # Directories
 BIN_DIR := bin
@@ -38,14 +38,15 @@ build: ## Build the binary
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY) ./cmd/rift
 
-build-all: ## Build for all platforms
+build-all: ## Build for all platforms (requires zig for cross-compilation)
 	@echo "$(GREEN)Building for all platforms...$(NC)"
+	@echo "$(YELLOW)Note: Cross-compilation requires zig. Install: https://ziglang.org/download/$(NC)"
 	@mkdir -p $(DIST_DIR)
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-linux-amd64 ./cmd/rift
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-linux-arm64 ./cmd/rift
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-darwin-amd64 ./cmd/rift
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-darwin-arm64 ./cmd/rift
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-windows-amd64.exe ./cmd/rift
+	CGO_ENABLED=1 CC="zig cc -target x86_64-linux-gnu"   GOOS=linux   GOARCH=amd64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-linux-amd64 ./cmd/rift
+	CGO_ENABLED=1 CC="zig cc -target aarch64-linux-gnu"  GOOS=linux   GOARCH=arm64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-linux-arm64 ./cmd/rift
+	CGO_ENABLED=1 CC="zig cc -target x86_64-macos"       GOOS=darwin  GOARCH=amd64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-darwin-amd64 ./cmd/rift
+	CGO_ENABLED=1 CC="zig cc -target aarch64-macos"      GOOS=darwin  GOARCH=arm64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-darwin-arm64 ./cmd/rift
+	CGO_ENABLED=1 CC="zig cc -target x86_64-windows-gnu" GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(DIST_DIR)/$(BINARY)-windows-amd64.exe ./cmd/rift
 
 run: build ## Run the proxy server
 	./$(BIN_DIR)/$(BINARY) serve
@@ -100,6 +101,14 @@ vet: ## Run go vet
 	go vet ./...
 
 check: fmt lint vet test ## Run all checks
+
+##@ Git Hooks
+
+hooks: ## Install git hooks (pre-commit + commit-msg)
+	@echo "$(GREEN)Installing git hooks...$(NC)"
+	@ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+	@ln -sf ../../scripts/commit-msg .git/hooks/commit-msg
+	@echo "$(GREEN)Git hooks installed$(NC)"
 
 ##@ Docker
 

@@ -1,7 +1,5 @@
-FROM --platform=$BUILDPLATFORM golang:1.25.6-alpine AS builder
+FROM golang:1.25.6 AS builder
 
-ARG TARGETOS
-ARG TARGETARCH
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_TIME=unknown
@@ -11,7 +9,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+# CGO_ENABLED=1 is required for pg_query_go. Each platform target runs
+# natively (via QEMU emulation for arm64), so the default gcc works.
+RUN CGO_ENABLED=1 go build \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildTime=${BUILD_TIME}" \
     -o /out/rift ./cmd/rift
 

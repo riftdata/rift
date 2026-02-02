@@ -12,22 +12,30 @@ builds:
     main: ./cmd/rift
     binary: rift
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
+    # Linux only — macOS and Windows are built natively on their own CI runners
+    # and uploaded to the release separately (see release.yml).
     goos:
       - linux
-      - darwin
-      - windows
     goarch:
       - amd64
       - arm64
-    ignore:
-      - goos: windows
-        goarch: arm64
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
       - -X main.commit={{.ShortCommit}}
       - -X main.buildTime={{.Date}}
+    overrides:
+      - goos: linux
+        goarch: amd64
+        env:
+          - CC=zigcc-linux-amd64
+          - CXX=zigcpp-linux-amd64
+      - goos: linux
+        goarch: arm64
+        env:
+          - CC=zigcc-linux-arm64
+          - CXX=zigcpp-linux-arm64
 
 archives:
   - id: default
@@ -36,9 +44,6 @@ archives:
       {{- .Version }}_
       {{- .Os }}_
       {{- .Arch }}
-    format_overrides:
-      - goos: windows
-        formats: [ zip ]
     files:
       - README.md
       - LICENSE
@@ -65,24 +70,12 @@ release:
   prerelease: auto
   name_template: "{{.Tag}}"
 
-homebrew_casks:
-  - name: rift
-    repository:
-      owner: riftdata
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    directory: Casks
-    homepage: "https://riftdata.io"
-    description: "Instant, copy-on-write database branches for Postgres"
-    binaries:
-      - rift
+# Homebrew cask is updated by a post-release job after all platform
+# binaries (including macOS) are uploaded. GoReleaser only builds Linux,
+# so it cannot generate the cask itself.
 
 # Docker images are built and pushed by .github/workflows/docker.yml
 # which uses docker/build-push-action with SBOM and provenance attestations.
-# GoReleaser's dockers_v2 does not support BuildKit attestations, so Docker
-# publishing is intentionally handled outside of GoReleaser to ensure all
-# images on Docker Hub and GHCR have a software bill of materials and
-# provenance attached.
 
 announce:
   skip: true

@@ -3,15 +3,23 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
+	"regexp"
 	"runtime"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/riftdata/rift/internal/config"
+	"github.com/riftdata/rift/internal/cow"
+	"github.com/riftdata/rift/internal/server"
+	"github.com/riftdata/rift/internal/storage"
 	"github.com/riftdata/rift/internal/ui"
 )
 
@@ -248,7 +256,7 @@ If branch-name is not provided, an interactive prompt will guide you.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runCreate,
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		// No completions for branch name - it's a new name
+		// No completions for the branch name - it's a new name
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	},
 }
@@ -451,9 +459,25 @@ func init() {
 
 // Completion function for branch names
 func completeBranches(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// TODO: Load actual branches from config/state
-	// For now, return placeholder
-	return []string{"main"}, cobra.ShellCompDirectiveNoFileComp
+	if cfg == nil || cfg.Upstream.URL == "" {
+		return []string{"main"}, cobra.ShellCompDirectiveNoFileComp
+	}
+	store, err := storage.New(cmd.Context(), cfg.Upstream.URL)
+	if err != nil {
+		return []string{"main"}, cobra.ShellCompDirectiveNoFileComp
+	}
+	defer store.Close()
+
+	branches, err := store.ListBranches(cmd.Context())
+	if err != nil {
+		return []string{"main"}, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	names := make([]string, len(branches))
+	for i, b := range branches {
+		names[i] = b.Name
+	}
+	return names, cobra.ShellCompDirectiveNoFileComp
 }
 
 // Command implementations
@@ -485,11 +509,34 @@ func runInit(cmd *cobra.Command, args []string) error {
 	spinner := ui.NewSimpleSpinner("Connecting to upstream database")
 	spinner.Start()
 
-	// TODO: Actually connect and validate
-	// For now, simulate
-	// time.Sleep(1 * time.Second)
+	// Connect and run migrations
+	store, err := storage.New(cmd.Context(), upstreamURL)
+	if err != nil {
+		spinner.Stop("Connection failed")
+		return fmt.Errorf("connecting to upstream: %w", err)
+	}
+	defer store.Close()
 
-	spinner.Stop("Connected to upstream database")
+	if err := store.Init(cmd.Context()); err != nil {
+		spinner.Stop("Migration failed")
+		return fmt.Errorf("initializing storage: %w", err)
+	}
+
+	// Update the main branch with the actual upstream database name
+	u, _ := url.Parse(upstreamURL)
+	dbName := ""
+	if u != nil {
+		dbName = strings.TrimPrefix(u.Path, "/")
+	}
+	if dbName != "" {
+		mainBranch, err := store.GetBranch(cmd.Context(), "main")
+		if err == nil && mainBranch.Database == "" {
+			mainBranch.Database = dbName
+			_ = store.UpdateBranch(cmd.Context(), mainBranch)
+		}
+	}
+
+	spinner.Stop("Connected and initialized _rift schema")
 
 	// Save config
 	cfg = config.DefaultConfig()
@@ -532,6 +579,24 @@ func runServe(cmd *cobra.Command, args []string) error {
 		cfg.API.ListenAddr = apiAddr
 	}
 
+	// Parse upstream URL to extract host:port for TCP proxy
+	upstreamAddr, upstreamUser, upstreamPass := parseUpstreamURL(cfg.Upstream.URL)
+
+	srv := server.New(&server.Config{
+		UpstreamURL:    cfg.Upstream.URL,
+		ListenAddr:     cfg.Proxy.ListenAddr,
+		UpstreamAddr:   upstreamAddr,
+		UpstreamUser:   upstreamUser,
+		UpstreamPass:   upstreamPass,
+		MaxConnections: cfg.Proxy.MaxConnections,
+		APIAddr:        cfg.API.ListenAddr,
+	})
+
+	if err := srv.Start(cmd.Context()); err != nil {
+		return fmt.Errorf("starting server: %w", err)
+	}
+	defer func() { _ = srv.Stop() }()
+
 	out.Title("rift")
 
 	box := fmt.Sprintf(
@@ -549,8 +614,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 	out.Print("")
 	out.Print(ui.Muted.Render("Press Ctrl+C to stop"))
 
-	// TODO: Actually start servers
-	// For now, block
 	<-cmd.Context().Done()
 
 	out.Print("")
@@ -559,13 +622,17 @@ func runServe(cmd *cobra.Command, args []string) error {
 }
 
 func runCreate(cmd *cobra.Command, args []string) error {
+	if cfg == nil {
+		return fmt.Errorf("rift not initialized. Run 'rift init' first")
+	}
+
 	var branchName string
 
 	if len(args) > 0 {
 		branchName = args[0]
 	} else if interactive || len(args) == 0 {
 		// Interactive mode
-		details, err := ui.BranchForm([]string{"main"}) // TODO: Get actual branches
+		details, err := ui.BranchForm([]string{"main"})
 		if err != nil {
 			return err
 		}
@@ -581,8 +648,27 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	spinner := ui.NewSimpleSpinner(fmt.Sprintf("Creating branch '%s'", branchName))
 	spinner.Start()
 
-	// TODO: Actually create branch
-	// time.Sleep(500 * time.Millisecond)
+	store, engine, err := connectAndInit(cmd.Context())
+	if err != nil {
+		spinner.Stop("Failed")
+		return err
+	}
+	defer store.Close()
+
+	var ttl *time.Duration
+	if branchTTL != "" {
+		d, err := time.ParseDuration(branchTTL)
+		if err != nil {
+			spinner.Stop("Failed")
+			return fmt.Errorf("invalid TTL: %w", err)
+		}
+		ttl = &d
+	}
+
+	if err := engine.CreateBranch(cmd.Context(), branchName, parentBranch, ttl); err != nil {
+		spinner.Stop("Failed")
+		return fmt.Errorf("create branch: %w", err)
+	}
 
 	spinner.Stop(fmt.Sprintf("Branch '%s' created", branchName))
 
@@ -599,6 +685,10 @@ func runCreate(cmd *cobra.Command, args []string) error {
 }
 
 func runDelete(cmd *cobra.Command, args []string) error {
+	if cfg == nil {
+		return fmt.Errorf("rift not initialized. Run 'rift init' first")
+	}
+
 	branchName := args[0]
 
 	if !forceDelete {
@@ -618,35 +708,51 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	spinner := ui.NewSimpleSpinner(fmt.Sprintf("Deleting branch '%s'", branchName))
 	spinner.Start()
 
-	// TODO: Actually delete branch
-	// time.Sleep(300 * time.Millisecond)
+	store, engine, err := connectAndInit(cmd.Context())
+	if err != nil {
+		spinner.Stop("Failed")
+		return err
+	}
+	defer store.Close()
+
+	if err := engine.DeleteBranch(cmd.Context(), branchName); err != nil {
+		spinner.Stop("Failed")
+		return fmt.Errorf("delete branch: %w", err)
+	}
 
 	spinner.Stop(fmt.Sprintf("Branch '%s' deleted", branchName))
 	return nil
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	// TODO: Get actual branches
-	branches := []struct {
-		Name    string
-		Parent  string
-		Created string
-		Size    string
-		Status  string
-	}{
-		{"main", "-", "2024-01-01", "0 B", "active"},
-		{"feature-auth", "main", "2024-01-15", "2.3 MB", "active"},
-		{"pr-123", "main", "2024-01-20", "156 KB", "active"},
+	if cfg == nil {
+		return fmt.Errorf("rift not initialized. Run 'rift init' first")
+	}
+
+	store, err := storage.New(cmd.Context(), cfg.Upstream.URL)
+	if err != nil {
+		return fmt.Errorf("connect to upstream: %w", err)
+	}
+	defer store.Close()
+
+	branches, err := store.ListBranches(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("list branches: %w", err)
 	}
 
 	if output == "json" || output == "yaml" {
 		return out.Data(branches)
 	}
 
-	table := ui.NewTable(out, "NAME", "PARENT", "CREATED", "SIZE", "STATUS")
+	table := ui.NewTable(out, "NAME", "PARENT", "CREATED", "ROWS CHANGED", "STATUS")
 	for _, b := range branches {
+		parent := b.Parent
+		if parent == "" {
+			parent = "-"
+		}
+		created := b.CreatedAt.Format("2006-01-02 15:04")
 		status := ui.Success.Render("● " + b.Status)
-		table.AddRow(b.Name, b.Parent, b.Created, b.Size, status)
+		table.AddRow(b.Name, parent, created, fmt.Sprintf("%d", b.RowsChanged), status)
 	}
 	table.Render()
 
@@ -654,84 +760,169 @@ func runList(cmd *cobra.Command, args []string) error {
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
+	if cfg == nil {
+		return fmt.Errorf("rift not initialized. Run 'rift init' first")
+	}
+
+	store, err := storage.New(cmd.Context(), cfg.Upstream.URL)
+	if err != nil {
+		return fmt.Errorf("connect to upstream: %w", err)
+	}
+	defer store.Close()
+
 	if len(args) > 0 {
-		// Branch status
 		branchName := args[0]
+		b, err := store.GetBranch(cmd.Context(), branchName)
+		if err != nil {
+			return fmt.Errorf("branch %q not found", branchName)
+		}
+
 		out.Title(fmt.Sprintf("Branch: %s", branchName))
 
-		// TODO: Get actual branch info
-		out.KeyValue("Parent", "main")
-		out.KeyValue("Created", "2024-01-15 10:30:00")
-		out.KeyValue("Storage", "2.3 MB (delta)")
-		out.KeyValue("Commits", "42")
-		out.KeyValue("Status", ui.Success.Render("active"))
+		parent := b.Parent
+		if parent == "" {
+			parent = "-"
+		}
+		out.KeyValue("Parent", parent)
+		out.KeyValue("Created", b.CreatedAt.Format("2006-01-02 15:04:05"))
+		out.KeyValue("Updated", b.UpdatedAt.Format("2006-01-02 15:04:05"))
+		out.KeyValue("Rows changed", fmt.Sprintf("%d", b.RowsChanged))
+		out.KeyValue("Delta size", fmt.Sprintf("%d bytes", b.DeltaSize))
+		out.KeyValue("Pinned", fmt.Sprintf("%v", b.Pinned))
+		out.KeyValue("Status", ui.Success.Render(b.Status))
+
+		// Show tracked tables
+		tables, err := store.ListTrackedTables(cmd.Context(), branchName)
+		if err == nil && len(tables) > 0 {
+			out.Print("")
+			out.Info("Tracked tables:")
+			for _, t := range tables {
+				out.Print(fmt.Sprintf("  %s.%s (rows: %d)", t.SourceSchema, t.TableName, t.RowCount))
+			}
+		}
 	} else {
-		// System status
 		out.Title("rift Status")
 
-		out.KeyValue("Proxy", ui.Success.Render("● running"))
-		out.KeyValue("API", ui.Success.Render("● running"))
+		branches, err := store.ListBranches(cmd.Context())
+		if err != nil {
+			return err
+		}
+
 		out.KeyValue("Upstream", ui.Success.Render("● connected"))
 		out.Print("")
-		out.KeyValue("Branches", "3")
-		out.KeyValue("Total storage", "2.5 MB")
-		out.KeyValue("Connections", "5")
+		out.KeyValue("Branches", fmt.Sprintf("%d", len(branches)))
 	}
 
 	return nil
 }
 
 func runDiff(cmd *cobra.Command, args []string) error {
-	branch1 := args[0]
-	branch2 := "main"
-	if len(args) > 1 {
-		branch2 = args[1]
+	if cfg == nil {
+		return fmt.Errorf("rift not initialized. Run 'rift init' first")
 	}
 
-	out.Title(fmt.Sprintf("Diff: %s → %s", branch1, branch2))
+	branchName := args[0]
 
-	// TODO: Get actual diff
-	out.Info("Schema changes:")
-	out.Print("  (none)")
-	out.Print("")
+	store, engine, err := connectAndInit(cmd.Context())
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	diff, err := engine.Diff(cmd.Context(), branchName)
+	if err != nil {
+		return fmt.Errorf("compute diff: %w", err)
+	}
+
+	out.Title(fmt.Sprintf("Diff: %s → %s", branchName, diff.Parent))
+
+	if len(diff.Tables) == 0 {
+		out.Info("No changes")
+		return nil
+	}
+
 	out.Info("Data changes:")
-	out.Print("  users: 2 inserts, 1 update, 0 deletes")
-	out.Print("  orders: 0 inserts, 0 updates, 1 delete")
+	for _, t := range diff.Tables {
+		out.Print(fmt.Sprintf("  %s: %d inserts, %d updates, %d deletes",
+			t.TableName, t.Inserts, t.Updates, t.Deletes))
+	}
+
+	out.Print("")
+	out.KeyValue("Total changes", fmt.Sprintf("%d", diff.TotalChanges()))
 
 	return nil
 }
 
 func runMerge(cmd *cobra.Command, args []string) error {
+	if cfg == nil {
+		return fmt.Errorf("rift not initialized. Run 'rift init' first")
+	}
+
 	branchName := args[0]
 
-	out.Title(fmt.Sprintf("Merge: %s → main", branchName))
+	store, engine, err := connectAndInit(cmd.Context())
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	merges, err := engine.GenerateMerge(cmd.Context(), branchName)
+	if err != nil {
+		return fmt.Errorf("generate merge: %w", err)
+	}
+
+	if len(merges) == 0 {
+		out.Info("No changes to merge")
+		return nil
+	}
+
+	out.Title(fmt.Sprintf("Merge: %s → parent", branchName))
 
 	if dryRun {
-		out.Warning("Dry run - no changes will be made")
+		out.Warning("Dry run - displaying SQL only")
 		out.Print("")
 	}
 
-	// TODO: Generate actual SQL
-	out.Print("-- Generated migration SQL")
-	out.Print("BEGIN;")
-	out.Print("")
-	out.Print("INSERT INTO users (id, name) VALUES (3, 'Charlie');")
-	out.Print("UPDATE users SET name = 'Robert' WHERE id = 2;")
-	out.Print("")
-	out.Print("COMMIT;")
+	out.Print("-- Generated merge SQL")
+	for _, m := range merges {
+		out.Print(fmt.Sprintf("-- Table: %s", m.TableName))
+		out.Print(cow.FormatMergeSQL(&m))
+		out.Print("")
+	}
 
 	return nil
 }
 
+// validBranchName matches only safe characters for use in a connection URL and
+// as an argument to syscall.Exec. This prevents injection of path separators,
+// query strings, or shell metacharacters through user-supplied branch names.
+var validBranchName = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+
 func runConnect(cmd *cobra.Command, args []string) error {
 	branchName := args[0]
 
+	if !validBranchName.MatchString(branchName) {
+		return fmt.Errorf("invalid branch name %q: must contain only letters, digits, dots, hyphens, and underscores", branchName)
+	}
+
+	addr := ":6432"
+	if cfg != nil && cfg.Proxy.ListenAddr != "" {
+		addr = cfg.Proxy.ListenAddr
+	}
+
+	escapedName := url.PathEscape(branchName)
+	connURL := fmt.Sprintf("postgres://localhost%s/%s", addr, escapedName)
 	out.Info(fmt.Sprintf("Connecting to branch '%s'...", branchName))
+	out.Print(fmt.Sprintf("  psql %s", connURL))
 
-	// TODO: Actually exec psql
-	// syscall.Exec("psql", []string{"psql", fmt.Sprintf("postgres://localhost:6432/%s", branchName)}, os.Environ())
+	// Find psql binary
+	psqlPath, err := findExecutable("psql")
+	if err != nil {
+		return fmt.Errorf("psql not found in PATH. Connect manually:\n  psql %s", connURL)
+	}
 
-	return nil
+	// Replace process with psql
+	return syscall.Exec(psqlPath, []string{"psql", connURL}, os.Environ()) // #nosec G204 -- branch name validated against whitelist regex
 }
 
 func runConfigShow(cmd *cobra.Command, args []string) error {
@@ -742,18 +933,81 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 }
 
 func runConfigSet(cmd *cobra.Command, args []string) error {
+	if cfg == nil {
+		return fmt.Errorf("no configuration loaded")
+	}
+
 	key := args[0]
 	value := args[1]
 
-	out.Success(fmt.Sprintf("Set %s = %s", key, value))
-	// TODO: Actually set and save
+	viper.Set(key, value)
 
+	if err := viper.Unmarshal(cfg); err != nil {
+		return fmt.Errorf("applying config update: %w", err)
+	}
+
+	configPath := viper.ConfigFileUsed()
+	if configPath == "" {
+		configPath = cfg.Storage.DataDir + "/config.yaml"
+	}
+
+	if err := cfg.Save(configPath); err != nil {
+		return fmt.Errorf("saving config: %w", err)
+	}
+
+	out.Success(fmt.Sprintf("Set %s = %s", key, value))
 	return nil
 }
 
-// Helper to mask password in URL
-func maskPassword(url string) string {
-	// Simple masking - in production use proper URL parsing
-	// "postgres://user:secret@host/db" -> "postgres://user:****@host/db"
-	return url // TODO: Implement properly
+// connectAndInit creates a storage connection and CoW engine for CLI commands.
+func connectAndInit(ctx context.Context) (storage.Store, *cow.Engine, error) {
+	store, err := storage.New(ctx, cfg.Upstream.URL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("connect to upstream: %w", err)
+	}
+	engine := cow.NewEngine(store)
+	return store, engine, nil
+}
+
+// parseUpstreamURL extracts host:port, user, and password from a Postgres URL.
+func parseUpstreamURL(rawURL string) (addr, user, pass string) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "localhost:5432", "", ""
+	}
+
+	host := u.Hostname()
+	port := u.Port()
+	if host == "" {
+		host = "localhost"
+	}
+	if port == "" {
+		port = "5432"
+	}
+	addr = host + ":" + port
+
+	user = u.User.Username()
+	pass, _ = u.User.Password()
+
+	return addr, user, pass
+}
+
+// maskPassword masks the password in a URL for display.
+func maskPassword(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	if u.User == nil {
+		return rawURL
+	}
+	if _, hasPass := u.User.Password(); hasPass {
+		u.User = url.UserPassword(u.User.Username(), "****")
+	}
+	return u.String()
+}
+
+// findExecutable locates a binary in PATH.
+func findExecutable(name string) (string, error) {
+	return exec.LookPath(name)
 }
